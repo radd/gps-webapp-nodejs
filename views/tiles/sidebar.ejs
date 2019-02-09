@@ -9,7 +9,14 @@
       <li>
         <a href="/signup">Rejestracja</a>
       </li>
-      
+      <li>
+        <a href="/userpage">Userpage</a>
+      </li>
+      <% if(user.isLoggedIn) { %>
+      <li>
+          <a href="/logout">Wyloguj się</a>
+      </li>
+      <% } %>
     </ul>
   </div>
 </div>

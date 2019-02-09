@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const app = express();
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
+var request = require('request');
 
 
 app.use(express.static('public'));
@@ -23,9 +24,25 @@ app.use(session({
 }));
 
 app.use((req, res, next) => {
+    // remove session cookie if session do not exist
     if (req.cookies.user_sid && !req.session.user) {
         res.clearCookie('user_sid');        
     }
+
+    // intercept any request and save session data to get it in views
+    let _render = res.render;
+    res.render = function( view, options, fn ) {
+
+        options = Object.assign(options, {
+            user: {
+                isLoggedIn: !!req.session.user,
+                email: req.session.user ? req.session.user.email : "",
+                token: req.session.user ? req.session.user.token : ""
+            }
+        });
+        _render.call( this, view, options, fn );
+    }
+
     next();
 });
 
@@ -34,13 +51,20 @@ let auth = (req, res, next) => {
         next();
     } else {
         res.redirect('/login');
-    } 
+    }
+};
+
+let nonAuth = (req, res, next) => {
+    if (req.session.user && req.cookies.user_sid) {
+        res.redirect('/');
+    } else {
+        next();
+    }
 };
 
 let viewParams = {
-    title: "",
+    title: ""
 };
-
 
 let params = (p) => {
     return Object.assign(viewParams, p);
@@ -61,39 +85,93 @@ app.route('/')
     });
 
 
-app.route('/login')
-    .get((req, res) => {
-        let title = "Log in";
+app.route('/signup')
+    .get(nonAuth, (req, res) => {
+        let title = "Rejestracja";
+        let form = {add:false, errorMsg: "", email:"", username:""}
 
-
-
-        res.render('login', params({title: title}));
+        res.render('signup', params({title: title, form: form}));
     })
-    .post((req, res) => {
-       
-        req.session.user = {email: "test@test.com", token: "12345678"};
+    .post(nonAuth, (req, res) => {
+        let title = "Rejestracja";
+        let form = {add:false, errorMsg: "", email: req.body.email, username: req.body.username}
 
-        //res.render('login', {action: "post"});
-        res.redirect('/userpage');
+        var options = {
+            uri: 'http://localhost:8080/api/auth/sign-up',
+            method: 'POST',
+            json: {
+                email: req.body.email,
+                username: req.body.username,
+                password: req.body.password,
+                password2: req.body.password2,
+            }
+          };
+
+        request(options, function (error, response, body) {
+            console.log(body);
+            
+            if (!error && response.statusCode == 201) {
+                form.add = true;
+                res.render('signup', params({title: title, form: form}));
+            }
+            else {
+                form.errorMsg = body.message;
+                res.render('signup', params({title: title, form: form}));
+            }
+        });
+
+        
     });
 
-app.get('/logout', (req, res) => {
-    if (req.session.user && req.cookies.user_sid) {
+app.route('/login')
+    .get(nonAuth, (req, res) => {
+        let title = "Logowanie";
+        let form = {errorMsg: "", email:""}
+
+        res.render('login', params({title: title, form: form}));
+    })
+    .post(nonAuth, (req, res) => {
+        let title = "Logowanie";
+        let form = {errorMsg: "", email: req.body.email}
+
+        var options = {
+            uri: 'http://localhost:8080/api/auth/sign-in',
+            method: 'POST',
+            json: {
+                email: req.body.email,
+                password: req.body.password
+            }
+          };
+
+        request(options, function (error, response, body) {
+            console.log(body);
+            
+            if (!error && response.statusCode == 200) {
+                console.log("redir");
+                req.session.user = {email: form.email, token: body.data.accessToken};
+                req.session.save(() => {
+                    res.redirect('/userpage');
+                });
+                
+            }
+            else {
+                form.errorMsg = "Niepoprawny email lub hasło";
+                res.render('login', params({title: title, form: form}));
+            }
+        });
+    });
+
+app.route('/logout')
+    .get(auth, (req, res) => {
         res.clearCookie('user_sid');
         res.redirect('/');
-    } else {
-        res.redirect('/login');
-    }
 });
 
 
 app.route('/userpage')
     .get(auth, (req, res) => {
-
-        res.render('userpage', {action: req.session.user.email});
-    })
-    .post((req, res) => {
-        res.render('userpage', {action: "post"});
+        let title = "Userpage";
+        res.render('userpage', {title: title});
     });
 
 
