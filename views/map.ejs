@@ -22,8 +22,17 @@ $(function() {
   var token = "<%= user.token %>";
   var subs = {};
   var markers = {};
+  var polylines = {};
   var users = {};
   var WSClient = null;
+  var markerColors = [
+    {name: "red", hex: "e84141"}, 
+    {name: "blue", hex: "5dade2"}, 
+    {name: "purple", hex: "9969c7"}, 
+    {name: "orange", hex: "ff7f00"}, 
+    {name: "green", hex: "46CB18"},
+    {name: "yellow", hex: "fdfd04"}
+  ];
 
   function loadMap() {
     var mapOptions = {
@@ -118,10 +127,28 @@ $(function() {
     }
   }
 
-  function creteMarker(latLong) {
+  function createMarker(latLong, color) {
     return new google.maps.Marker({
-      position: latLong
+      map: map,
+      position: latLong,
+      icon: {
+        url: "/images/"+color+".svg",
+        scaledSize: new google.maps.Size(25, 41)
+      }
     });
+  }
+
+  function createPolyline(colorHex) {
+    var polyline = new google.maps.Polyline({
+      map: map,
+      path: [],
+      geodesic: true,
+      strokeColor: '#' + colorHex,
+      strokeOpacity: 1.0,
+      strokeWeight: 4
+    });
+
+    return polyline;
   }
 
   function setMarker(location) {
@@ -129,13 +156,19 @@ $(function() {
     var latLong = new google.maps.LatLng(location.latitude, location.longitude);
     
     if(!markers[location.userID]) {
-      var marker = creteMarker(latLong);
-      marker.setMap(map);
+      //generate color for marker and polyline
+      var markersCount = Object.keys(markers).length;
+      var color = markerColors[markersCount % markerColors.length];
+
+      var marker = createMarker(latLong, color.name);
       markers[location.userID] = marker;
+
+      var polyline = createPolyline(color.hex);
+      polylines[location.userID] = polyline;
     }
 
+    polylines[location.userID].getPath().push(latLong);
     markers[location.userID].setPosition(latLong);
-
   }
 
   resetClients(); // reset clients on the server
