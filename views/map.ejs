@@ -1,12 +1,26 @@
 <% include tiles/header %>
 <% include tiles/top %>
 
-<div class="container">
-  <div class="row">
-    <div class="col-md-12">
-      <div class="map-page">
-        <div id="map_canvas"></div>
+<div class="map-page">
+  <div id="map_canvas"></div>
+
+  <div id="openUserList"><i class="fas fa-users"></i></div>
+  <div id="userList">
+    <div class="header-panel">
+      <div class="title">Aktywni użytkownicy (<span id="userCount">0</span>)</div>
+      <div id="closeUserList" class="close-panel"><i class="fas fa-times"></i></div>
+    </div>
+    <div class="user-list">
+      <div class="header">
+        <div class="checkbox">
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" checked class="custom-control-input" id="selectAllUsers">
+              <label class="custom-control-label" for="selectAllUsers">Obserwój wszystkich</label>
+            </div>
+        </div>
       </div>
+      <div class="emptyList">Brak aktywnych użytkowników</div>
+
     </div>
   </div>
 </div>
@@ -26,13 +40,14 @@ $(function() {
   var users = {};
   var WSClient = null;
   var markerColors = [
-    {name: "red", hex: "e84141"}, 
-    {name: "blue", hex: "5dade2"}, 
-    {name: "purple", hex: "9969c7"}, 
-    {name: "orange", hex: "ff7f00"}, 
-    {name: "green", hex: "46CB18"},
-    {name: "yellow", hex: "fdfd04"}
+    {name: "red", hex: ["e84141", "990000"]}, 
+    {name: "blue", hex: ["5dade2", "35586C"]}, 
+    {name: "purple", hex: ["9969c7", "633974"]}, 
+    {name: "orange", hex: ["ff7f00", "873600"]}, 
+    {name: "green", hex: ["46CB18", "145a32"]},
+    {name: "yellow", hex: ["fdfd04", "7e5109"]}
   ];
+  var isRunning = false;
 
   function loadMap() {
     var mapOptions = {
@@ -49,9 +64,9 @@ $(function() {
   }
 
   function animateZoom(map, targetZoom) {
-      var currentZoom = arguments[2] || map.getZoom();
-    
-    if (currentZoom != targetZoom) {
+    var currentZoom = arguments[2] || map.getZoom();
+
+    if (currentZoom < targetZoom) {
       var e = google.maps.event.addListener(map, 'zoom_changed', function(event){
         google.maps.event.removeListener(e);
         animateZoom(map, targetZoom, currentZoom + (targetZoom > currentZoom ? 1 : -1));
@@ -70,7 +85,7 @@ $(function() {
     xhr.onload = function () {
       var status = xhr.status;
       if (status === 200) {
-        console.log(xhr.response);
+        //console.log(xhr.response);
         
         saveUsers(xhr.response);
       } else {
@@ -87,12 +102,13 @@ $(function() {
       users[data[i]._id] = data[i];
     }
     WebSocketConnect();
+    
   }
 
   function WebSocketConnect() {
     WSClient = webstomp.client("ws://localhost:8080/send", {debug: false, protocols: [token]});
     WSClient.connect({}, function() {
-      console.log("connected");
+      //console.log("connected");
       subscribeAllUsers();
     }, function(error) {
       //alert("WebSocket Error");
@@ -114,8 +130,19 @@ $(function() {
     subs[userID] = WSClient.subscribe("/topic/get/" + userID, onLocationReceive);
   }
 
+  function unsubscribeUser(userID) {
+    if(!WSClient) {
+      console.log("WSClient is null");
+      return;
+    }
+    
+    subs[userID].unsubscribe();
+    delete subs[userID];
+  }
+
+
   function onLocationReceive(message) {
-    console.log("msg: " + message.body);
+    //console.log("msg: " + message.body);
     //client.send('/ws/send/2', JSON.stringify({a:"ala"}));
 
     var loc = JSON.parse(message.body);
@@ -127,13 +154,19 @@ $(function() {
     }
   }
 
-  function createMarker(latLong, color) {
+  function createMarker(location, color) {
     return new google.maps.Marker({
       map: map,
-      position: latLong,
       icon: {
-        url: "/images/"+color+".svg",
-        scaledSize: new google.maps.Size(25, 41)
+        url: "/images/"+color.name+".svg",
+        scaledSize: new google.maps.Size(25, 41),
+        labelOrigin: new google.maps.Point(15, -10)
+      },
+      labelClass: "labels",
+      label: {
+        text: "",
+        color: '#' + color.hex[1],
+        fontSize: '12px'
       }
     });
   }
@@ -152,21 +185,33 @@ $(function() {
   }
 
   function setMarker(location) {
-
     var latLong = new google.maps.LatLng(location.latitude, location.longitude);
     
     if(!markers[location.userID]) {
-      //generate color for marker and polyline
-      var markersCount = Object.keys(markers).length;
-      var color = markerColors[markersCount % markerColors.length];
 
-      var marker = createMarker(latLong, color.name);
+      if(!users[location.userID].color) {
+        //generate color for marker and polyline
+        var markersCount = Object.keys(markers).length;
+        var color = markerColors[markersCount % markerColors.length];
+        users[location.userID].color = color;
+      }
+
+      var color = users[location.userID].color;
+      var marker = createMarker(location, color);
       markers[location.userID] = marker;
+      $("#userCount").text(Object.keys(markers).length);
 
-      var polyline = createPolyline(color.hex);
+      var polyline = createPolyline(color.hex[0]);
       polylines[location.userID] = polyline;
-    }
 
+      if($("#checkbox-"+location.userID).length === 0)
+        loadUserUI(location.userID, color.name);
+    }
+    
+
+    var label = markers[location.userID].getLabel();
+    label.text = users[location.userID].username + " " + location.speed + " km/h";
+    markers[location.userID].setLabel(label);
     polylines[location.userID].getPath().push(latLong);
     markers[location.userID].setPosition(latLong);
   }
@@ -185,10 +230,124 @@ $(function() {
 
   loadMap();
   loadUsers();
+
+
+  $("#openUserList").click(function () {
+    showUserList()
+  });
+
+  $("#userList .close-panel").click(function () {
+    $("#userList").fadeOut();
+    $("#openUserList").fadeIn();
+  });
+
+  function showUserList() {
+    $("#openUserList").fadeOut(0);
+    $("#userList").fadeIn();
+  }
+  showUserList();
+
+  function loadUserUI(userID, color) {
+    var user = users[userID];
+    var output = "";
+    var elUser = document.createElement("div");
+    $(elUser).attr("user-id", user._id);
+    $(elUser).addClass("user");
+
+    //checkbox
+    var elCheckbox = document.createElement("div");
+    $(elCheckbox).addClass("checkbox");
+    var checkboxDiv = document.createElement("div");
+    $(checkboxDiv).addClass("custom-control custom-checkbox");
+
+    var checkboxInput = $('<input type="checkbox" class="custom-control-input" checked id="checkbox-'+userID+'">');
+    checkboxInput.change(function() {
+      var userID = $(this).attr("id").substring(9);
+      console.log("user: " + userID + " is: " + $(this).is(':checked'));
+      if($(this).is(':checked'))
+        subscribeUser(userID);
+      else
+        removeUser(userID);
+
+    });
+    
+    var checkboxLabel = $('<label class="custom-control-label" for="checkbox-'+userID+'">&nbsp;</label>');
+    $(checkboxDiv).append(checkboxInput);
+    $(checkboxDiv).append(checkboxLabel);
+    $(elCheckbox).append(checkboxDiv);
+
+    //pin
+    var elPin = document.createElement("div");
+    $(elPin).addClass("pin");
+
+    $(elPin).click(function(e) {
+      var parent = $(this).parent();
+      var id = parent.attr("user-id");
+      if(!markers[id])
+        return;
+
+      markers[id].setAnimation(google.maps.Animation.BOUNCE);
+      setTimeout(function(){ markers[id].setAnimation(null); }, 3000);
+    });
+    var elPinImg = document.createElement("img");
+    $(elPinImg).attr("src", "/images/"+color+".svg");
+    $(elPin).append(elPinImg);
+
+    //username
+    var elUserName = document.createElement("div");
+    $(elUserName).addClass("username");
+    $(elUserName).text(user.username);
+    $(elUserName).click(function() {
+      var parent = $(this).parent();
+      var id = parent.attr("user-id");
+      if(!markers[id])
+        return;
+      var latLong = markers[id].getPosition();
+
+      var currentZoom = map.getZoom();
+      map.panTo(latLong);
+      if(currentZoom != 15 && currentZoom != 14 && currentZoom != 13) // because map.panTo changes zoom and animate is lagging 
+        animateZoom(map, 15);
+    });
+    
   
+    $(elUser).append(elCheckbox);
+    $(elUser).append(elUserName);
+    $(elUser).append(elPin);
+
+    $(".user-list").append(elUser);
+  }
+
+  function removeUser(userID) {
+    polylines[userID].setMap(null);
+    delete polylines[userID];
+    markers[userID].setMap(null);
+    delete markers[userID];
+    unsubscribeUser(userID);
+  }
+
+  function removeAllUsers() {
+    for(var userID in markers) {
+      removeUser(userID);
+    }
+  }
+
+
+ $("#selectAllUsers").change(function () {
+    toggleAllCheckbox($(this).is(':checked'));
+  });
+
+  function toggleAllCheckbox(state) {
+    $(".user-list .user .checkbox input:checkbox").each(function() {
+      $(this).prop( "checked", state).change();
+    });
+  }
+
+
 });
 
 </script>
+
 
 
 <% include tiles/footer %>
