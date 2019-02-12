@@ -3,7 +3,7 @@ const bodyParser = require('body-parser');
 const app = express();
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
-var request = require('request');
+const request = require('request');
 
 
 app.use(express.static('public'));
@@ -11,7 +11,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.set('view engine', 'ejs')
 app.use(cookieParser());
 
-var day = 1000*60*60*24;
+let day = 1000*60*60*24;
+let isAutoLogin = true;
+
 app.use(session({
     key: 'user_sid',
     secret: 'somerandonstuffs',
@@ -25,26 +27,59 @@ app.use(session({
 
 app.use((req, res, next) => {
     // remove session cookie if session do not exist
-    if (req.cookies.user_sid && !req.session.user) {
-        res.clearCookie('user_sid');        
+    if ((!req.cookies.user_sid || !req.session.user) && isAutoLogin) {
+        //res.clearCookie('user_sid'); 
+        autoLogin(req, afterLogin);
+    }
+    else {
+        afterLogin();
     }
 
-    // intercept any request and save session data to get it in views
-    let _render = res.render;
-    res.render = function( view, options, fn ) {
+    function afterLogin() {
+        // intercept any request and save session data to get it in views
+        let _render = res.render;
+        res.render = function( view, options, fn ) {
 
-        options = Object.assign(options, {
-            user: {
-                isLoggedIn: !!req.session.user,
-                email: req.session.user ? req.session.user.email : "",
-                token: req.session.user ? req.session.user.token : ""
-            }
-        });
-        _render.call( this, view, options, fn );
+            options = Object.assign(options, {
+                user: {
+                    isLoggedIn: !!req.session.user,
+                    email: req.session.user ? req.session.user.email : "",
+                    token: req.session.user ? req.session.user.token : ""
+                }
+            });
+            _render.call( this, view, options, fn );
+        }
+        next();
     }
 
-    next();
 });
+
+let autoLogin = (req, callback) => {
+    var options = {
+        uri: 'http://localhost:8080/api/auth/sign-in',
+        method: 'POST',
+        json: {
+            email: "test1@test.com",
+            password: "test"
+        }
+      };
+      
+    request(options, function (error, response, body) {
+        console.log(body);
+        
+        if (!error && response.statusCode == 200) {
+            req.session.user = {email: options.json.email, token: body.data.accessToken};
+            req.session.save(() => {
+                callback();
+            });
+            console.log("AutoLogin successed");
+        }
+        else {
+            console.log("AutoLogin failed");
+            callback();
+        }
+    });
+}
 
 let auth = (req, res, next) => {
     if (req.session.user && req.cookies.user_sid) {
@@ -112,12 +147,14 @@ app.route('/signup')
             
             if (!error && response.statusCode == 201) {
                 form.add = true;
-                res.render('signup', params({title: title, form: form}));
+            }
+            else if(!error) {
+                form.errorMsg = body.message ? body.message : "Błąd";
             }
             else {
-                form.errorMsg = body.message;
-                res.render('signup', params({title: title, form: form}));
+                form.errorMsg = "Błąd: " + error;
             }
+            res.render('signup', params({title: title, form: form}));
         });
 
         
@@ -154,8 +191,12 @@ app.route('/login')
                 });
                 
             }
-            else {
+            else if (!error) {
                 form.errorMsg = "Niepoprawny email lub hasło";
+                res.render('login', params({title: title, form: form}));
+            }
+            else {
+                form.errorMsg = "Błąd: " + error;
                 res.render('login', params({title: title, form: form}));
             }
         });
@@ -165,7 +206,7 @@ app.route('/logout')
     .get(auth, (req, res) => {
         res.clearCookie('user_sid');
         res.redirect('/');
-});
+    });
 
 
 app.route('/userpage')
@@ -174,11 +215,12 @@ app.route('/userpage')
         res.render('userpage', {title: title});
     });
 
-
-app.get('/follow', (req, res) => {
-    res.render('follow', {});
-    });
     
+app.route('/map')
+    .get(auth, (req, res) => {
+        let title = "GPS tracking";
+        res.render('map', {title: title});
+    });
 
 
 app.listen(3000, function () {

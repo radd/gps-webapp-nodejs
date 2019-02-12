@@ -1,0 +1,161 @@
+<% include tiles/header %>
+<% include tiles/top %>
+
+<div class="container">
+  <div class="row">
+    <div class="col-md-12">
+      <div class="map-page">
+        <div id="map_canvas"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<% include tiles/footerScript %>
+
+<script src="/lib/stompjs/stomp.js"></script>
+
+<script>
+$(function() {
+  var map;
+  var token = "<%= user.token %>";
+  var subs = {};
+  var markers = {};
+  var users = {};
+  var WSClient = null;
+
+  function loadMap() {
+    var mapOptions = {
+      center: new google.maps.LatLng(50.201723, 17.822469),
+      zoom: 12,
+      mapTypeId: google.maps.MapTypeId.ROADMAP,
+      tilt: 45,
+        rotateControl: true
+    };
+
+    map = new google.maps.Map(document.getElementById("map_canvas"), mapOptions);
+    map.setTilt(45);
+
+  }
+
+  function animateZoom(map, targetZoom) {
+      var currentZoom = arguments[2] || map.getZoom();
+    
+    if (currentZoom != targetZoom) {
+      var e = google.maps.event.addListener(map, 'zoom_changed', function(event){
+        google.maps.event.removeListener(e);
+        animateZoom(map, targetZoom, currentZoom + (targetZoom > currentZoom ? 1 : -1));
+      });
+      setTimeout(function(){map.setZoom(currentZoom)}, 80);
+    }
+  }
+
+
+  function loadUsers() {
+    var url = "http://localhost:8080/api/test/users";
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.responseType = 'json';
+    xhr.onload = function () {
+      var status = xhr.status;
+      if (status === 200) {
+        console.log(xhr.response);
+        
+        saveUsers(xhr.response);
+      } else {
+        console.log("unauthotirize");
+      }
+    };
+    
+    xhr.send();
+  }
+
+  function saveUsers(data) {
+    users = {};
+    for(var i = 0; i < data.length;i++) {
+      users[data[i]._id] = data[i];
+    }
+    WebSocketConnect();
+  }
+
+  function WebSocketConnect() {
+    WSClient = webstomp.client("ws://localhost:8080/send", {debug: false, protocols: [token]});
+    WSClient.connect({}, function() {
+      console.log("connected");
+      subscribeAllUsers();
+    }, function(error) {
+      //alert("WebSocket Error");
+      console.log(error);
+    });
+
+  }
+  function subscribeAllUsers() {
+    for(var userID in users) {
+      subscribeUser(userID);
+    }
+  }
+
+  function subscribeUser(userID) {
+    if(!WSClient) {
+      console.log("WSClient is null");
+      return;
+    }
+    subs[userID] = WSClient.subscribe("/topic/get/" + userID, onLocationReceive);
+  }
+
+  function onLocationReceive(message) {
+    console.log("msg: " + message.body);
+    //client.send('/ws/send/2', JSON.stringify({a:"ala"}));
+
+    var loc = JSON.parse(message.body);
+    if(loc.latitude)
+      setMarker(loc);
+    else {
+      console.log("Error message");
+      console.log(message);
+    }
+  }
+
+  function creteMarker(latLong) {
+    return new google.maps.Marker({
+      position: latLong
+    });
+  }
+
+  function setMarker(location) {
+
+    var latLong = new google.maps.LatLng(location.latitude, location.longitude);
+    
+    if(!markers[location.userID]) {
+      var marker = creteMarker(latLong);
+      marker.setMap(map);
+      markers[location.userID] = marker;
+    }
+
+    markers[location.userID].setPosition(latLong);
+
+  }
+
+  resetClients(); // reset clients on the server
+  function resetClients() {
+    var url = "http://localhost:8080/api/test/reset";
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.responseType = 'json';
+    xhr.onload = function () {};
+    
+    xhr.send();
+  }
+
+  loadMap();
+  loadUsers();
+  
+});
+
+</script>
+
+
+<% include tiles/footer %>
