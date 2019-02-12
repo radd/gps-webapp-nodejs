@@ -133,9 +133,12 @@ body {
 	cursor: pointer;
 }
 
-#userList .user-list .emptyList {
+#userList .user-list .empty-list {
 	padding: 30px 0;
 	text-align: center;
 	font-size: 14px;
+	opacity: 0;
+	transition: .2s all;
 }
+
 

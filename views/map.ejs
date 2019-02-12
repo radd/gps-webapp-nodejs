@@ -19,8 +19,7 @@
             </div>
         </div>
       </div>
-      <div class="emptyList">Brak aktywnych użytkowników</div>
-
+      <div class="empty-list">Brak aktywnych użytkowników</div>
     </div>
   </div>
 </div>
@@ -184,12 +183,9 @@ $(function() {
     return polyline;
   }
 
-  function setMarker(location) {
-    var latLong = new google.maps.LatLng(location.latitude, location.longitude);
-    
-    if(!markers[location.userID]) {
+  function addUserToMap(location) {
 
-      if(!users[location.userID].color) {
+    if(!users[location.userID].color) {
         //generate color for marker and polyline
         var markersCount = Object.keys(markers).length;
         var color = markerColors[markersCount % markerColors.length];
@@ -206,14 +202,24 @@ $(function() {
 
       if($("#checkbox-"+location.userID).length === 0)
         loadUserUI(location.userID, color.name);
+
+      $("#userList .empty-list").css("display", "none");
+  }
+
+  function setMarker(location) {
+    var latLong = new google.maps.LatLng(location.latitude, location.longitude);
+    
+    if(!markers[location.userID]) { // when user not exists
+      addUserToMap(location);
     }
     
-
+    //update label text
     var label = markers[location.userID].getLabel();
     label.text = users[location.userID].username + " " + location.speed + " km/h";
     markers[location.userID].setLabel(label);
-    polylines[location.userID].getPath().push(latLong);
-    markers[location.userID].setPosition(latLong);
+
+    polylines[location.userID].getPath().push(latLong); //update route
+    markers[location.userID].setPosition(latLong); //update marker position
   }
 
   resetClients(); // reset clients on the server
@@ -343,6 +349,8 @@ $(function() {
     });
   }
 
+  //if after 2s empty-list won't disable (because of inactive users) show label
+  setTimeout(function(){ $("#userList .empty-list").css("opacity", "1");}, 2000);
 
 });
 
