@@ -24,7 +24,38 @@
       <div class="empty-list">Brak aktywnych użytkowników</div>
     </div>
     <div class="user-info">
-      <div class="aa">ss</div>
+      <div class="top-info">
+        <div id="userClickPin" class="pin"><img id="userPin" src="/images/red.svg" /></div>
+        <div id="userFollow" class="follow">
+          <i class="fas fa-location-arrow"></i>
+          <span id="userFollowDesc" class="desc">FOLLOW</span>
+        </div>
+        <div id="userOnline" class="online active">
+          <i class="fas fa-satellite-dish"></i>
+          <span id="userOnlineDesc" class="desc">ONLINE</span>
+        </div>
+      </div>
+      <table class="table table-borderless table-info">
+        <tr>
+          <th rowspan="2" class="gps-span"><i class="fas fa-map-marker-alt"></i></th>
+          <td id="userLatitude">Mark</td>
+        </tr>
+        <tr>
+          <td id="userLongitude">Jacob</td>
+        </tr>
+        <tr>
+          <th><i class="fas fa-tachometer-alt"></i></th>
+          <td><span id="userSpeed">12</span> km/h</td>
+        </tr>
+        <tr>
+          <th><i class="fas fa-mountain"></i></i></th>
+          <td><span id="userAltitude">333</span> m</td>
+        </tr>
+        <tr>
+          <th><i class="far fa-check-circle"></i></i></th>
+          <td><span id="userAccuracy">12</span> m</td>
+        </tr>
+      </table>
     </div>
     </div>
   </div>
@@ -53,6 +84,8 @@ $(function() {
     {name: "yellow", hex: ["fdfd04", "7e5109"]}
   ];
   var lastLocations = {};
+  var userPanelActive = {isActive: false, userID: ""};
+  var followUser = {isActive: false, userID: ""};
 
   function loadMap() {
     var mapOptions = {
@@ -78,6 +111,12 @@ $(function() {
       });
       setTimeout(function(){map.setZoom(currentZoom)}, 80);
     }
+  }
+
+  function animateZoomHelper(map, targetZoom) {
+    var currentZoom = map.getZoom();
+    if(currentZoom != targetZoom && currentZoom != targetZoom -1 && currentZoom != targetZoom -2) // because map.panTo changes zoom and animate is lagging 
+      animateZoom(map, targetZoom);
   }
 
 
@@ -157,6 +196,8 @@ $(function() {
        setMarker(loc);
        setLastLocation(loc);
        setUserOnline(loc);
+       if(userPanelActive.isActive && userPanelActive.userID === loc.userID)
+        setUserInfoLocation(loc);
     }
     else {
       console.log("Error message");
@@ -214,6 +255,8 @@ $(function() {
         loadUserUI(location.userID, color.name);
 
       $("#userList .empty-list").css("display", "none");
+
+      addMarkerClickEvent(marker, location.userID);
   }
 
   function setMarker(location) {
@@ -230,16 +273,29 @@ $(function() {
 
     polylines[location.userID].getPath().push(latLong); //update route
     markers[location.userID].setPosition(latLong); //update marker position
+    
+    if(followUser.isActive && followUser.userID === location.userID)
+      followUserFun(location.userID, latLong);
+  }
+
+  function followUserFun(userID, latLong) {
+    map.panTo(latLong);
   }
 
   function setLastLocation(location) {
-    lastLocations[location.userID] = location;
+    if(!lastLocations[location.userID]) {
+      lastLocations[location.userID] = {location: location, isActive: true};
+    }
+      
+    lastLocations[location.userID].location = location;
   }
 
   function setUserOnline(location) {
     if(!lastLocations[location.userID].isActive) {
       lastLocations[location.userID].isActive = true;
       $("#active-" + location.userID).addClass("active");
+      if(userPanelActive.isActive && userPanelActive.userID === location.userID)
+        setUserInfoState(true);
     }
   }
 
@@ -248,23 +304,37 @@ $(function() {
       checkUserOnline();
 		  setInterval(function() {
         checkUserOnline();
-		  }, 10000);
+		  }, 5000);
 	  }, 2000);
   } 
 
-  function checkUserOnline() {
+  function checkUserOnline(delay = 30000) {
     var activeUsers = 0;
     for(var userID in lastLocations) {
-      if(Date.now() - lastLocations[userID].timestamp > 30000) {
+      if(Date.now() - lastLocations[userID].location.timestamp > delay) {
+        if(!lastLocations[userID].isActive) //if false then break because it has been changed earlier
+          break;
+
         $("#active-" + userID).removeClass("active");
         $("#active-" + userID).attr("title", "offline");
         lastLocations[userID].isActive = false;
-      } 
+        if(userPanelActive.isActive && userPanelActive.userID === lastLocations[userID].location.userID)
+          setUserInfoState(false);
+      }
       else {
         activeUsers++;
       }
     }
     $("#userCount").text(activeUsers);
+  }
+
+  function addMarkerClickEvent(marker, userID) {
+    marker.addListener('click', function() {
+      map.panTo(marker.getPosition());
+      animateZoomHelper(map, 17);
+      showUserInfo(userID);
+      });
+
   }
 
   $("#openUserList").click(function () {
@@ -325,10 +395,9 @@ $(function() {
         return;
       var latLong = markers[id].getPosition();
 
-      var currentZoom = map.getZoom();
+      
       map.panTo(latLong);
-      if(currentZoom != 15 && currentZoom != 14 && currentZoom != 13) // because map.panTo changes zoom and animate is lagging 
-        animateZoom(map, 15);
+      animateZoomHelper(map, 15);
     });
 
     //pin
@@ -396,22 +465,61 @@ $(function() {
     $(".user-list .user .checkbox input:checkbox").each(function() {
       $(this).prop( "checked", state).change();
     });
+    if(!state)
+      checkUserOnline(0);
   }
 
   function showUserInfo(userID) {
-    openUserInfoPanel(users[userID].username);
-
+    userPanelActive.userID = userID;
+    userPanelActive.isActive = true;
+    
+    openUserInfoPanel(users[userID]);
+    fillUserInfo(users[userID]);
   }
 
-  function openUserInfoPanel(title) {
+  // when user panel is open
+  function openUserInfoPanel(user) {
     $("#userList .panel-content").css("transform", "translateX(-50%)");
-    //$("#userList .nav-icon").css("visibility", "visible");
     $("#userList .nav-icon").html('<i class="fas fa-arrow-left"></i>');
-    $("#userList .title").text(title);
+    $("#userList .title").text(user.username);
+    $("#userList .user-info").css("border-bottom-color", "#" + user.color.hex[0]);
   }
+
+  function fillUserInfo(user) {
+    $("#userPin").attr("src", "/images/"+ user.color.name + ".svg");
+    $("#userClickPin").attr("user-id", user._id);
+    $("#userFollow").attr("user-id", user._id);
+    setUserInfoState(lastLocations[user._id].isActive);
+    setUserInfoLocation(lastLocations[user._id].location);
+
+    if(followUser.isActive && followUser.userID === user._id)
+      $("#userFollow").addClass("active");
+    else
+      $("#userFollow").removeClass("active");
+    
+  }
+
+  function setUserInfoState(state) {
+    //console.log("info online " + state );
+    if(state) {
+      $("#userOnline").addClass("active");
+      $("#userOnlineDesc").text("ONLINE");
+    }
+    else {
+      $("#userOnline").removeClass("active");
+      $("#userOnlineDesc").text("OFFLINE");
+    }
+  }
+  function setUserInfoLocation(location) {
+    $("#userLatitude").text(location.latitude);
+    $("#userLongitude").text(location.longitude);
+    $("#userSpeed").text(location.speed);
+    $("#userAltitude").text(location.altitude);
+  }
+
 
   $("#userList .nav-icon").click(function () {
-    //if();
+    userPanelActive.isActive = false;
     closeUserInfoPanel();
   });
 
@@ -419,9 +527,53 @@ $(function() {
     $("#userList .panel-content").css("transform", "translateX(0)");
     //$("#userList .nav-icon").css("visibility", "hidden");
     $("#userList .nav-icon").html('<i class="fas fa-users"></i>');
-
     $("#userList .title").html('Aktywni użytkownicy (<span id="userCount">0</span>)');
+
     checkUserOnline();
+  }
+
+  $("#userClickPin").click(function () {
+    var userID = $(this).attr("user-id");
+    if(!markers[userID])
+      return;
+
+    var latLong = markers[userID].getPosition();
+    
+    map.panTo(latLong);
+    animateZoomHelper(map, 17);
+  });
+
+  $("#userFollow").click(function () {
+    var userID = $(this).attr("user-id");
+    if(!markers[userID])
+      return;
+
+    if(followUser.isActive) {
+      followUser.isActive = false;
+      $("#userFollow").removeClass("active");
+
+      if(followUser.userID !== userID) { // follow another user
+        prepareFollowUser(userID);
+      }
+    }
+    else {
+      prepareFollowUser(userID);
+    }
+  });
+
+  function prepareFollowUser(userID) {
+    var latLong = markers[userID].getPosition();
+
+    map.panTo(latLong);
+    animateZoomHelper(map, 17);
+
+    followUser.userID = userID;
+    followUser.isActive = true;
+    $("#userFollow").addClass("active");
+  }
+
+  function unfollowUser(userID) {
+    followUser.isActive = false;
   }
 
   resetClients(); // reset clients on the server
