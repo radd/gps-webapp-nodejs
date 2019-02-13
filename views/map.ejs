@@ -7,19 +7,25 @@
   <div id="openUserList"><i class="fas fa-users"></i></div>
   <div id="userList">
     <div class="header-panel">
+      <div class="nav-icon"><i class="fas fa-users"></i></div> 
       <div class="title">Aktywni użytkownicy (<span id="userCount">0</span>)</div>
       <div id="closeUserList" class="close-panel"><i class="fas fa-times"></i></div>
     </div>
+    <div class="panel-content">
     <div class="user-list">
       <div class="header">
         <div class="checkbox">
             <div class="custom-control custom-checkbox">
               <input type="checkbox" checked class="custom-control-input" id="selectAllUsers">
-              <label class="custom-control-label" for="selectAllUsers">Obserwój wszystkich</label>
+              <label class="custom-control-label" for="selectAllUsers">&nbsp;Obserwuj wszystkich</label>
             </div>
         </div>
       </div>
       <div class="empty-list">Brak aktywnych użytkowników</div>
+    </div>
+    <div class="user-info">
+      <div class="aa">ss</div>
+    </div>
     </div>
   </div>
 </div>
@@ -46,7 +52,7 @@ $(function() {
     {name: "green", hex: ["46CB18", "145a32"]},
     {name: "yellow", hex: ["fdfd04", "7e5109"]}
   ];
-  var isRunning = false;
+  var lastLocations = {};
 
   function loadMap() {
     var mapOptions = {
@@ -126,7 +132,8 @@ $(function() {
       console.log("WSClient is null");
       return;
     }
-    subs[userID] = WSClient.subscribe("/topic/get/" + userID, onLocationReceive);
+    if(!subs[userID])
+      subs[userID] = WSClient.subscribe("/topic/get/" + userID, onLocationReceive);
   }
 
   function unsubscribeUser(userID) {
@@ -134,9 +141,10 @@ $(function() {
       console.log("WSClient is null");
       return;
     }
-    
-    subs[userID].unsubscribe();
-    delete subs[userID];
+    if(subs[userID]) {
+      subs[userID].unsubscribe();
+      delete subs[userID];
+    }
   }
 
 
@@ -145,8 +153,11 @@ $(function() {
     //client.send('/ws/send/2', JSON.stringify({a:"ala"}));
 
     var loc = JSON.parse(message.body);
-    if(loc.latitude)
-      setMarker(loc);
+    if(loc.latitude) {
+       setMarker(loc);
+       setLastLocation(loc);
+       setUserOnline(loc);
+    }
     else {
       console.log("Error message");
       console.log(message);
@@ -195,7 +206,6 @@ $(function() {
       var color = users[location.userID].color;
       var marker = createMarker(location, color);
       markers[location.userID] = marker;
-      $("#userCount").text(Object.keys(markers).length);
 
       var polyline = createPolyline(color.hex[0]);
       polylines[location.userID] = polyline;
@@ -222,21 +232,40 @@ $(function() {
     markers[location.userID].setPosition(latLong); //update marker position
   }
 
-  resetClients(); // reset clients on the server
-  function resetClients() {
-    var url = "http://localhost:8080/api/test/reset";
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-    xhr.responseType = 'json';
-    xhr.onload = function () {};
-    
-    xhr.send();
+  function setLastLocation(location) {
+    lastLocations[location.userID] = location;
   }
 
-  loadMap();
-  loadUsers();
+  function setUserOnline(location) {
+    if(!lastLocations[location.userID].isActive) {
+      lastLocations[location.userID].isActive = true;
+      $("#active-" + location.userID).addClass("active");
+    }
+  }
 
+  function startCheckUserOnline() {
+    setTimeout(function() {
+      checkUserOnline();
+		  setInterval(function() {
+        checkUserOnline();
+		  }, 10000);
+	  }, 2000);
+  } 
+
+  function checkUserOnline() {
+    var activeUsers = 0;
+    for(var userID in lastLocations) {
+      if(Date.now() - lastLocations[userID].timestamp > 30000) {
+        $("#active-" + userID).removeClass("active");
+        $("#active-" + userID).attr("title", "offline");
+        lastLocations[userID].isActive = false;
+      } 
+      else {
+        activeUsers++;
+      }
+    }
+    $("#userCount").text(activeUsers);
+  }
 
   $("#openUserList").click(function () {
     showUserList()
@@ -269,7 +298,7 @@ $(function() {
     var checkboxInput = $('<input type="checkbox" class="custom-control-input" checked id="checkbox-'+userID+'">');
     checkboxInput.change(function() {
       var userID = $(this).attr("id").substring(9);
-      console.log("user: " + userID + " is: " + $(this).is(':checked'));
+      //console.log("user: " + userID + " is: " + $(this).is(':checked'));
       if($(this).is(':checked'))
         subscribeUser(userID);
       else
@@ -281,6 +310,26 @@ $(function() {
     $(checkboxDiv).append(checkboxInput);
     $(checkboxDiv).append(checkboxLabel);
     $(elCheckbox).append(checkboxDiv);
+
+    //active
+    var elActive = document.createElement("div");
+    $(elActive).addClass("user-active active");
+    $(elActive).attr("id", "active-" + user._id);
+    $(elActive).attr("title", "online");
+    var activeIcon = $('<i class="fas fa-satellite-dish"></i>');
+    $(elActive).append(activeIcon);
+    $(elActive).click(function() {
+      var parent = $(this).parent();
+      var id = parent.attr("user-id");
+      if(!markers[id])
+        return;
+      var latLong = markers[id].getPosition();
+
+      var currentZoom = map.getZoom();
+      map.panTo(latLong);
+      if(currentZoom != 15 && currentZoom != 14 && currentZoom != 13) // because map.panTo changes zoom and animate is lagging 
+        animateZoom(map, 15);
+    });
 
     //pin
     var elPin = document.createElement("div");
@@ -306,29 +355,29 @@ $(function() {
     $(elUserName).click(function() {
       var parent = $(this).parent();
       var id = parent.attr("user-id");
-      if(!markers[id])
-        return;
-      var latLong = markers[id].getPosition();
-
-      var currentZoom = map.getZoom();
-      map.panTo(latLong);
-      if(currentZoom != 15 && currentZoom != 14 && currentZoom != 13) // because map.panTo changes zoom and animate is lagging 
-        animateZoom(map, 15);
+      showUserInfo(id);
     });
     
   
     $(elUser).append(elCheckbox);
     $(elUser).append(elUserName);
+    $(elUser).append(elActive);
     $(elUser).append(elPin);
 
     $(".user-list").append(elUser);
   }
 
   function removeUser(userID) {
-    polylines[userID].setMap(null);
-    delete polylines[userID];
-    markers[userID].setMap(null);
-    delete markers[userID];
+    //remove polyline
+    if(polylines[userID]) {
+      polylines[userID].setMap(null);
+      delete polylines[userID];
+    }
+    //remove marker
+    if(markers[userID]) {
+      markers[userID].setMap(null);
+      delete markers[userID];
+    }
     unsubscribeUser(userID);
   }
 
@@ -339,7 +388,7 @@ $(function() {
   }
 
 
- $("#selectAllUsers").change(function () {
+  $("#selectAllUsers").change(function () {
     toggleAllCheckbox($(this).is(':checked'));
   });
 
@@ -349,6 +398,47 @@ $(function() {
     });
   }
 
+  function showUserInfo(userID) {
+    openUserInfoPanel(users[userID].username);
+
+  }
+
+  function openUserInfoPanel(title) {
+    $("#userList .panel-content").css("transform", "translateX(-50%)");
+    //$("#userList .nav-icon").css("visibility", "visible");
+    $("#userList .nav-icon").html('<i class="fas fa-arrow-left"></i>');
+    $("#userList .title").text(title);
+  }
+
+  $("#userList .nav-icon").click(function () {
+    //if();
+    closeUserInfoPanel();
+  });
+
+  function closeUserInfoPanel(title) {
+    $("#userList .panel-content").css("transform", "translateX(0)");
+    //$("#userList .nav-icon").css("visibility", "hidden");
+    $("#userList .nav-icon").html('<i class="fas fa-users"></i>');
+
+    $("#userList .title").html('Aktywni użytkownicy (<span id="userCount">0</span>)');
+    checkUserOnline();
+  }
+
+  resetClients(); // reset clients on the server
+  function resetClients() {
+    var url = "http://localhost:8080/api/test/reset";
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.responseType = 'json';
+    xhr.onload = function () {};
+    
+    xhr.send();
+  }
+
+  loadMap();
+  loadUsers();
+  startCheckUserOnline();
   //if after 2s empty-list won't disable (because of inactive users) show label
   setTimeout(function(){ $("#userList .empty-list").css("opacity", "1");}, 2000);
 

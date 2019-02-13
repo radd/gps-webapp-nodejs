@@ -65,7 +65,7 @@ let autoLogin = (req, callback) => {
       };
       
     request(options, function (error, response, body) {
-        console.log(body);
+        //console.log(body);
         
         if (!error && response.statusCode == 200) {
             req.session.user = {email: options.json.email, token: body.data.accessToken};
