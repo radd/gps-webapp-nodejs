@@ -24,6 +24,7 @@
       <div class="empty-list">Brak aktywnych użytkowników</div>
     </div>
     <div class="user-info">
+      <div class="user-info-wrap">
       <div class="top-info">
         <div id="userClickPin" class="pin"><img id="userPin" src="/images/red.svg" /></div>
         <div id="userFollow" class="follow">
@@ -56,6 +57,15 @@
           <td><span id="userAccuracy">12</span> m</td>
         </tr>
       </table>
+      <div class="form-group user-map-form">
+        <label for="user-map-input">Bezpośredni link</label>
+        <input type="text" name="user-map-input" id="userMapLink" class="form-control user-map-input" value="http://localhost:3000/map/user/">
+      </div>
+      <div class="user-map-link">
+        <button type="button" class="btn btn-link" id="copyUserMapLink">Skopiuj link</button> 
+        <a id="openUserMapLink" href="#" >Otwórz link</a>
+      </div>
+    </div>
     </div>
     </div>
   </div>
@@ -211,11 +221,11 @@ $(function() {
       icon: {
         url: "/images/"+color.name+".svg",
         scaledSize: new google.maps.Size(25, 41),
-        labelOrigin: new google.maps.Point(15, -10)
+        labelOrigin: new google.maps.Point(13, -10)
       },
       labelClass: "labels",
       label: {
-        text: "",
+        text: users[location.userID].username,
         color: '#' + color.hex[1],
         fontSize: '12px'
       }
@@ -254,7 +264,10 @@ $(function() {
       if($("#checkbox-"+location.userID).length === 0)
         loadUserUI(location.userID, color.name);
 
-      $("#userList .empty-list").css("display", "none");
+      if(Object.keys(markers).length === 1) {
+        $("#userList .empty-list").css("display", "none");
+        $(".user-info-wrap").css("visibility", "visible");
+      }
 
       addMarkerClickEvent(marker, location.userID);
   }
@@ -265,11 +278,6 @@ $(function() {
     if(!markers[location.userID]) { // when user not exists
       addUserToMap(location);
     }
-    
-    //update label text
-    var label = markers[location.userID].getLabel();
-    label.text = users[location.userID].username + " " + location.speed + " km/h";
-    markers[location.userID].setLabel(label);
 
     polylines[location.userID].getPath().push(latLong); //update route
     markers[location.userID].setPosition(latLong); //update marker position
@@ -312,8 +320,8 @@ $(function() {
     var activeUsers = 0;
     for(var userID in lastLocations) {
       if(Date.now() - lastLocations[userID].location.timestamp > delay) {
-        if(!lastLocations[userID].isActive) //if false then break because it has been changed earlier
-          break;
+        if(!lastLocations[userID].isActive) //if false then continue because it has been changed earlier
+          continue;
 
         $("#active-" + userID).removeClass("active");
         $("#active-" + userID).attr("title", "offline");
@@ -492,6 +500,10 @@ $(function() {
     setUserInfoState(lastLocations[user._id].isActive);
     setUserInfoLocation(lastLocations[user._id].location);
 
+    $("#userMapLink").attr("value", "http://localhost:3000/map/user/" + user._id);
+    $("#openUserMapLink").attr("href", "/map/user/" + user._id);
+    $("#copyUserMapLink").text("Skopiuj link");
+
     if(followUser.isActive && followUser.userID === user._id)
       $("#userFollow").addClass("active");
     else
@@ -575,6 +587,12 @@ $(function() {
   function unfollowUser(userID) {
     followUser.isActive = false;
   }
+
+  $("#copyUserMapLink").click(function () {
+    $("#userMapLink").select();
+    document.execCommand('copy');
+    $("#copyUserMapLink").text("Skopiowano");
+  });
 
   resetClients(); // reset clients on the server
   function resetClients() {

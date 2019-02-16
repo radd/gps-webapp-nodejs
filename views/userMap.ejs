@@ -1,0 +1,402 @@
+<% include tiles/header %>
+<% include tiles/top %>
+
+<div class="map-page">
+  <div id="map_canvas"></div>
+
+  <div id="openUser"><i class="fas fa-user"></i></div>
+  <div id="user">
+    <div class="header-panel">
+      <div class="nav-icon"><i class="fas fa-user"></i></div> 
+      <div class="title"></div>
+      <div id="closeUserList" class="close-panel"><i class="fas fa-times"></i></div>
+    </div>
+    <div class="panel-content">
+    <div class="user-info">
+      <div class="empty-list">Użytkownik nie jest aktywny</div>
+      <div class="user-info-wrap">
+      <div class="top-info">
+        <div id="userClickPin" class="pin"><img id="userPin" src="/images/red.svg" /></div>
+        <div id="userFollow" class="follow">
+          <i class="fas fa-location-arrow"></i>
+          <span id="userFollowDesc" class="desc">FOLLOW</span>
+        </div>
+        <div id="userOnline" class="online active">
+          <i class="fas fa-satellite-dish"></i>
+          <span id="userOnlineDesc" class="desc">ONLINE</span>
+        </div>
+      </div>
+      <table class="table table-borderless table-info">
+        <tr>
+          <th rowspan="2" class="gps-span"><i class="fas fa-map-marker-alt"></i></th>
+          <td id="userLatitude"></td>
+        </tr>
+        <tr>
+          <td id="userLongitude"></td>
+        </tr>
+        <tr>
+          <th><i class="fas fa-tachometer-alt"></i></th>
+          <td><span id="userSpeed"></span> km/h</td>
+        </tr>
+        <tr>
+          <th><i class="fas fa-mountain"></i></i></th>
+          <td><span id="userAltitude"></span> m</td>
+        </tr>
+        <tr>
+          <th><i class="far fa-check-circle"></i></i></th>
+          <td><span id="userAccuracy"></span> m</td>
+        </tr>
+      </table>
+
+    </div>
+    </div>
+    </div>
+  </div>
+</div>
+
+
+<% include tiles/footerScript %>
+
+<script src="/lib/stompjs/stomp.js"></script>
+
+<script>
+$(function() {
+  var map;
+  var token = "<%= user.token %>";
+  var userID = "<%= userID %>";
+  var sub = null;
+  var marker = null;
+  var polyline = null;
+  var user = null;
+  var WSClient = null;
+  var markerColors = [
+    {name: "red", hex: ["e84141", "990000"]}, 
+    {name: "blue", hex: ["5dade2", "35586C"]}, 
+    {name: "purple", hex: ["9969c7", "633974"]}, 
+    {name: "orange", hex: ["ff7f00", "873600"]}, 
+    {name: "green", hex: ["46CB18", "145a32"]},
+    {name: "yellow", hex: ["fdfd04", "7e5109"]}
+  ];
+  var lastLocation = null;
+  var followUser = false;
+  var userIsOnline = false;
+
+  function loadMap() {
+    var mapOptions = {
+      center: new google.maps.LatLng(50.201723, 17.822469),
+      zoom: 12,
+      mapTypeId: google.maps.MapTypeId.ROADMAP,
+      tilt: 45,
+        rotateControl: true
+    };
+
+    map = new google.maps.Map(document.getElementById("map_canvas"), mapOptions);
+    map.setTilt(45);
+
+  }
+
+  function animateZoom(map, targetZoom) {
+    var currentZoom = arguments[2] || map.getZoom();
+
+    if (currentZoom < targetZoom) {
+      var e = google.maps.event.addListener(map, 'zoom_changed', function(event){
+        google.maps.event.removeListener(e);
+        animateZoom(map, targetZoom, currentZoom + (targetZoom > currentZoom ? 1 : -1));
+      });
+      setTimeout(function(){map.setZoom(currentZoom)}, 80);
+    }
+  }
+
+  function animateZoomHelper(map, targetZoom) {
+    var currentZoom = map.getZoom();
+    if(currentZoom != targetZoom && currentZoom != targetZoom -1 && currentZoom != targetZoom -2) // because map.panTo changes zoom and animate is lagging 
+      animateZoom(map, targetZoom);
+  }
+
+
+  function loadUser() {
+    var url = "http://localhost:8080/api/test/user/" + userID;
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.responseType = 'json';
+    xhr.onload = function () {
+      var status = xhr.status;
+      if (status === 200) {
+        //console.log(xhr.response);
+        
+        saveUser(xhr.response);
+      } else {
+        console.log("unauthotirize");
+      }
+    };
+    
+    xhr.send();
+  }
+
+  function saveUser(data) {
+    user = data;
+    WebSocketConnect();
+  }
+
+  function WebSocketConnect() {
+    WSClient = webstomp.client("ws://localhost:8080/send", {debug: false, protocols: [token]});
+    WSClient.connect({}, function() {
+      //console.log("connected");
+      subscribeUser();
+    }, function(error) {
+      //alert("WebSocket Error");
+      console.log(error);
+    });
+
+  }
+
+  function subscribeUser() {
+    if(!WSClient) {
+      console.log("WSClient is null");
+      return;
+    }
+    if(!sub)
+      sub = WSClient.subscribe("/topic/get/" + userID, onLocationReceive);
+  }
+
+  function onLocationReceive(message) {
+    //console.log("msg: " + message.body);
+    //client.send('/ws/send/2', JSON.stringify({a:"ala"}));
+
+    var loc = JSON.parse(message.body);
+    if(loc.latitude) {
+       setMarker(loc);
+       setLastLocation(loc);
+       setUserOnline(loc);
+       setUserInfoLocation(loc);
+    }
+    else {
+      console.log("Error message");
+      console.log(message);
+    }
+  }
+
+  function createMarker(location, color) {
+    return new google.maps.Marker({
+      map: map,
+      icon: {
+        url: "/images/"+color.name+".svg",
+        scaledSize: new google.maps.Size(25, 41),
+        labelOrigin: new google.maps.Point(13, -10)
+      },
+      labelClass: "labels",
+      label: {
+        text: user.username,
+        color: '#' + color.hex[1],
+        fontSize: '12px'
+      }
+    });
+  }
+
+  function createPolyline(colorHex) {
+    var polyline = new google.maps.Polyline({
+      map: map,
+      path: [],
+      geodesic: true,
+      strokeColor: '#' + colorHex,
+      strokeOpacity: 1.0,
+      strokeWeight: 4
+    });
+
+    return polyline;
+  }
+
+  function addUserToMap(location) {
+
+      var color = markerColors[0];
+      user.color = color;
+
+      marker = createMarker(location, color);
+
+      polyline = createPolyline(color.hex[0]);
+
+      $("#user .empty-list").css("display", "none");
+      $("#user .user-info-wrap").css("display", "block");
+
+      
+      if(!userIsOnline) {
+          userIsOnline = true;
+          fillUserInfo();
+       }
+
+      //addMarkerClickEvent(marker, location.userID);
+  }
+
+  function setMarker(location) {
+    var latLong = new google.maps.LatLng(location.latitude, location.longitude);
+    
+    if(!marker) { // when user not exists
+      addUserToMap(location);
+    }
+
+    polyline.getPath().push(latLong); //update route
+    marker.setPosition(latLong); //update marker position
+    
+    if(followUser)
+      followUserFun(latLong);
+  }
+
+  function followUserFun(latLong) {
+    map.panTo(latLong);
+  }
+
+  function setLastLocation(location) {
+    if(!lastLocation) {
+      lastLocation= {location: location, isActive: true};
+    }
+
+    lastLocation.location = location;
+  }
+
+  function setUserOnline(location) {
+    if(!lastLocation.isActive) {
+      lastLocation.isActive = true;
+      setUserInfoState(true);
+    }
+  }
+
+  function startCheckUserOnline() {
+    setTimeout(function() {
+      checkUserOnline();
+		  setInterval(function() {
+        checkUserOnline();
+		  }, 5000);
+	  }, 2000);
+  } 
+
+  function checkUserOnline(delay = 30000) {
+      if(Date.now() - lastLocation.location.timestamp > delay) {
+        if(!lastLocation.isActive) //if false then continue because it has been changed earlier
+          return;
+
+        lastLocation.isActive = false;
+        setUserInfoState(false);
+      }
+  
+  }
+
+  function addMarkerClickEvent(marker, userID) {
+    marker.addListener('click', function() {
+      map.panTo(marker.getPosition());
+      animateZoomHelper(map, 17);
+      });
+
+  }
+
+  $("#openUser").click(function () {
+    showUser()
+  });
+
+  $("#user .close-panel").click(function () {
+    $("#user").fadeOut();
+    $("#openUser").fadeIn();
+  });
+
+  function showUser() {
+    $("#openUser").fadeOut(0);
+    $("#user").fadeIn();
+  }
+  showUser();
+
+  function fillUserInfo() {
+    $("#user .title").text(user.username);
+    $("#userPin").attr("src", "/images/"+ user.color.name + ".svg");
+    $("#user .user-info").css("border-bottom-color", "#" + user.color.hex[0]);
+    $("#userClickPin").attr("user-id", user._id);
+    $("#userFollow").attr("user-id", user._id);
+
+    if(followUser)
+      $("#userFollow").addClass("active");
+    else
+      $("#userFollow").removeClass("active");
+    
+  }
+
+  function setUserInfoState(state) {
+    //console.log("info online " + state );
+    if(state) {
+      $("#userOnline").addClass("active");
+      $("#userOnlineDesc").text("ONLINE");
+    }
+    else {
+      $("#userOnline").removeClass("active");
+      $("#userOnlineDesc").text("OFFLINE");
+    }
+  }
+
+  function setUserInfoLocation(location) {
+    $("#userLatitude").text(location.latitude);
+    $("#userLongitude").text(location.longitude);
+    $("#userSpeed").text(location.speed);
+    $("#userAltitude").text(location.altitude);
+  }
+
+
+  $("#userClickPin").click(function () {
+    if(!marker)
+      return;
+
+    var latLong = marker.getPosition();
+    
+    map.panTo(latLong);
+    animateZoomHelper(map, 17);
+  });
+
+  $("#userFollow").click(function () {
+    if(!marker)
+      return;
+
+    if(followUser) {
+      followUser = false;
+      $("#userFollow").removeClass("active");
+    }
+    else {
+      prepareFollowUser();
+    }
+  });
+
+  function prepareFollowUser() {
+    var latLong = marker.getPosition();
+
+    map.panTo(latLong);
+    animateZoomHelper(map, 17);
+
+    followUser = true;
+    $("#userFollow").addClass("active");
+  }
+
+  function unfollowUser() {
+    followUser = false;
+  }
+
+  resetClients(); // reset clients on the server
+  function resetClients() {
+    var url = "http://localhost:8080/api/test/reset";
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.responseType = 'json';
+    xhr.onload = function () {};
+    
+    xhr.send();
+  }
+
+  loadMap();
+  loadUser();
+  startCheckUserOnline();
+  //if after 2s empty-list won't disable (because of inactive user) show label
+  setTimeout(function(){ $("#user .empty-list").css("opacity", "1");}, 2000);
+
+});
+
+</script>
+
+
+
+<% include tiles/footer %>
