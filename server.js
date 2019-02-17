@@ -228,6 +228,11 @@ app.route('/map/user/:userID')
         res.render('userMap', {title: title, userID: req.params.userID});
     });
 
+app.route('/map/user/:userID/tracks')
+    .get(auth, (req, res) => {
+        let title = "GPS tracking";
+        res.render('userTracksMap', {title: title, userID: req.params.userID});
+    });
 
 app.listen(3000, function () {
     console.log('Server listening on port 3000')

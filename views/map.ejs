@@ -85,14 +85,6 @@ $(function() {
   var polylines = {};
   var users = {};
   var WSClient = null;
-  var markerColors = [
-    {name: "red", hex: ["e84141", "990000"]}, 
-    {name: "blue", hex: ["5dade2", "35586C"]}, 
-    {name: "purple", hex: ["9969c7", "633974"]}, 
-    {name: "orange", hex: ["ff7f00", "873600"]}, 
-    {name: "green", hex: ["46CB18", "145a32"]},
-    {name: "yellow", hex: ["fdfd04", "7e5109"]}
-  ];
   var lastLocations = {};
   var userPanelActive = {isActive: false, userID: ""};
   var followUser = {isActive: false, userID: ""};
@@ -266,7 +258,7 @@ $(function() {
 
       if(Object.keys(markers).length === 1) {
         $("#userList .empty-list").css("display", "none");
-        $(".user-info-wrap").css("visibility", "visible");
+        $(".user-info-wrap").css("display", "block");
       }
 
       addMarkerClickEvent(marker, location.userID);
@@ -527,6 +519,7 @@ $(function() {
     $("#userLongitude").text(location.longitude);
     $("#userSpeed").text(location.speed);
     $("#userAltitude").text(location.altitude);
+    $("#userAccuracy").text(location.accuracy);
   }
 
 

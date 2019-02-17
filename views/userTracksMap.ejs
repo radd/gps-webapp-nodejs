@@ -1,0 +1,380 @@
+<% include tiles/header %>
+<% include tiles/top %>
+
+<div class="map-page">
+  <div id="map_canvas"></div>
+
+  <div id="openUserTracks"><i class="fas fa-route"></i></div>
+  <div id="userTracks">
+    <div class="header-panel">
+      <div class="nav-icon"><i class="fas fa-route"></i></div> 
+      <div id="panelTitle" class="title"></div>
+      <div id="closeUserTracks" class="close-panel"><i class="fas fa-times"></i></div>
+    </div>
+    <div class="panel-content">
+    <div class="track-list">
+      <div class="header">
+        Zapisanych tras:&nbsp;<span id="trackCount">0</span>
+      </div>
+      <div class="empty-list">Brak zapisanych tras</div>
+    </div>
+    <div class="track-info">
+      <div class="track-info-wrap">
+      <div class="track-details">
+        <div class="det"><div class="det-name">Początek:</div><div id="startTime" class="det-value"></div></div>
+        <div class="det"><div class="det-name">Koniec:</div><div id="finishTime" class="det-value"></div></div>
+        <div class="det"><div class="det-name">Dystans:</div><div id="distance" class="det-value"></div></div>
+
+      </div>
+      <div class="form-group track-map-form">
+        <label for="track-map-input">Bezpośredni link</label>
+        <input type="text" name="track-map-input" id="trackMapLink" class="form-control track-map-input" value="http://localhost:3000/map/user/">
+      </div>
+      <div class="track-map-link">
+        <button type="button" class="btn btn-link" id="copyTrackMapLink">Skopiuj link</button> 
+        <a id="openTrackMapLink" href="#" >Otwórz link</a>
+      </div>
+    </div>
+    </div>
+    </div>
+  </div>
+</div>
+
+
+<% include tiles/footerScript %>
+
+<script src="/lib/stompjs/stomp.js"></script>
+
+<script>
+$(function() {
+  var map;
+  var token = "<%= user.token %>";
+  var userID = "<%= userID %>";
+  var markerStart = null;
+  var markerFinish = null;
+  var polyline = null;
+  var tracks = {};
+  var user = null;
+  var WSClient = null;
+  var bounds = null;
+
+  var trackActive = {trackID: ""};
+
+  function loadMap() {
+    var mapOptions = {
+      center: new google.maps.LatLng(50.201723, 17.822469),
+      zoom: 12,
+      mapTypeId: google.maps.MapTypeId.ROADMAP,
+      tilt: 45,
+        rotateControl: true
+    };
+
+    map = new google.maps.Map(document.getElementById("map_canvas"), mapOptions);
+    map.setTilt(45);
+
+  }
+
+  function animateZoom(map, targetZoom) {
+    var currentZoom = arguments[2] || map.getZoom();
+
+    if (currentZoom < targetZoom) {
+      var e = google.maps.event.addListener(map, 'zoom_changed', function(event){
+        google.maps.event.removeListener(e);
+        animateZoom(map, targetZoom, currentZoom + (targetZoom > currentZoom ? 1 : -1));
+      });
+      setTimeout(function(){map.setZoom(currentZoom)}, 80);
+    }
+  }
+
+  function animateZoomHelper(map, targetZoom) {
+    var currentZoom = map.getZoom();
+    if(currentZoom != targetZoom && currentZoom != targetZoom -1 && currentZoom != targetZoom -2) // because map.panTo changes zoom and animate is lagging 
+      animateZoom(map, targetZoom);
+  }
+
+
+  function loadUserAndTracks() {
+    var url = "http://localhost:8080/api/test/user/"+userID+"/tracks";
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.responseType = 'json';
+    xhr.onload = function () {
+      var status = xhr.status;
+      if (status === 200) {
+        //console.log(xhr.response);
+        
+        saveUserAndTracks(xhr.response);
+      } else {
+        console.log("unauthotirize");
+      }
+    };
+    
+    xhr.send();
+  }
+
+  function saveUserAndTracks(data) {
+    user = data.user;
+
+    for(var i = 0; i < data.trackList.length;i++) {
+      // if finishTimestamp is incorrect
+      if(data.trackList[i].finishTimestamp <= data.trackList[i].startTimestamp)
+        continue;
+      tracks[data.trackList[i]._id] = data.trackList[i];
+      tracks[data.trackList[i]._id].latLongs = [];
+      loadTrackUI(data.trackList[i]);
+    }
+
+    var keys = Object.keys(tracks);
+    
+    if(keys.length > 0) {
+      $("#userTracks .empty-list").css("display", "none");
+      $("#userTracks .track-info-wrap").css("display", "block");
+
+      // auto open first track
+      setTimeout(function(){ 
+        openTrack(tracks[keys[0]], false);
+      }, 1000);
+    }
+
+    $("#panelTitle").text(user.username);
+    $("#trackCount").text(keys.length);
+
+  }
+
+
+  function createMarker(latLong, color, labelText) {
+    return new google.maps.Marker({
+      map: map,
+      position: latLong,
+      icon: {
+        url: "/images/"+color.name+".svg",
+        scaledSize: new google.maps.Size(25, 41),
+        labelOrigin: new google.maps.Point(13, -10)
+      },
+      labelClass: "labels",
+      label: {
+        text: labelText,
+        fontSize: '12px'
+      }
+    });
+  }
+
+  function createPolyline(locations, colorHex) {
+    var polyline = new google.maps.Polyline({
+      map: map,
+      path: locations,
+      geodesic: true,
+      strokeColor: '#' + colorHex,
+      strokeOpacity: 1.0,
+      strokeWeight: 4
+    });
+
+    return polyline;
+  }
+
+
+  $("#openUserTracks").click(function () {
+    showUserTracks()
+  });
+
+  $("#userTracks .close-panel").click(function () {
+    $("#userTracks").fadeOut();
+    $("#openUserTracks").fadeIn();
+  });
+
+  function showUserTracks() {
+    $("#openUserTracks").fadeOut(0);
+    $("#userTracks").fadeIn();
+  }
+  showUserTracks();
+
+  function loadTrackUI(track) {
+    var output = "";
+
+    var elTrack = document.createElement("div");
+    $(elTrack).attr("id", track._id);
+    $(elTrack).addClass("track");
+    $(elTrack).click(function() {
+      var trackID = $(this).attr("id");
+      openTrack(tracks[trackID]);
+    });
+
+    //date
+    var date = new Date(track.startTimestamp);
+    var elDate = document.createElement("div");
+    $(elDate).addClass("date");
+
+    var elDate1 = document.createElement("div");
+    $(elDate1).addClass("date-1");
+    $(elDate1).text(date.getDate());
+
+    var elDate2 = document.createElement("div");
+    $(elDate2).addClass("date-2");
+    $(elDate2).text(getMonthShortName(date.getMonth()) + " " + date.getFullYear());
+    
+    $(elDate).append(elDate1);
+    $(elDate).append(elDate2);
+
+    //name
+    var elName = document.createElement("div");
+    $(elName).addClass("name");
+    $(elName).text(track.name);
+
+    //distance
+    var elDistance = document.createElement("div");
+    $(elDistance).addClass("distance");
+
+    var dist = prepareDistance(track.distance);
+    var elDistance1 = document.createElement("div");
+    $(elDistance1).addClass("distance-1");
+    $(elDistance1).text(dist.value);
+
+    var elDistance2 = document.createElement("div");
+    $(elDistance2).addClass("distance-2");
+    $(elDistance2).text(dist.unit);
+
+    $(elDistance).append(elDistance1);
+    $(elDistance).append(elDistance2);
+
+  
+    $(elTrack).append(elDate);
+    $(elTrack).append(elName);
+    $(elTrack).append(elDistance);
+
+    $(".track-list").append(elTrack);
+  }
+
+  function openTrack(track, openPanel = true) {
+    $(".track-list .track").removeClass("active");
+    $("#"+ track._id).addClass("active");
+
+    bounds = new google.maps.LatLngBounds();
+
+    if(track.latLongs.length === 0) {
+      getTrackLocations(track._id, function (locations) {
+        for(var i =0;i<locations.length; i++) {
+          var latLong = new google.maps.LatLng(locations[i].latitude, locations[i].longitude);
+          track.latLongs.push(latLong);
+          bounds.extend(latLong);
+        }
+        next();
+      });
+    } 
+    else {
+      for(var i =0;i<track.latLongs.length; i++) {
+          bounds.extend(track.latLongs[i]);
+        }
+      next();
+    } 
+
+    function next() {
+      showTrack(track);
+      if(openPanel)
+        openTrackPanel(track); 
+    }
+  }
+
+  function getTrackLocations(trackID, callback) {
+    var url = "http://localhost:8080/api/test/track/"+trackID+"/locations";
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.responseType = 'json';
+    xhr.onload = function () {
+      var status = xhr.status;
+      if (status === 200) {
+        callback(xhr.response);
+      } else {
+        console.log("unauthotirize");
+      }
+    };
+    
+    xhr.send();
+  }
+
+  function showTrack(track) {
+    if(trackActive.trackID === track._id) {
+      //map.fitBounds(bounds);
+      return;
+    }
+
+    trackActive.trackID = track._id;
+
+    if(markerStart)
+      markerStart.setMap(null);
+    if(markerFinish)
+      markerFinish.setMap(null);
+    if(polyline)
+      polyline.setMap(null);
+
+    markerStart = createMarker(track.latLongs[0], markerColors[0], "Początek")
+    markerFinish = createMarker(track.latLongs[track.latLongs.length-1], markerColors[0], "Koniec")
+    polyline = createPolyline(track.latLongs, markerColors[0].hex[0]);
+    
+    map.fitBounds(bounds);
+  }
+
+  function openTrackPanel(track) {
+    
+    $("#userTracks .panel-content").css("transform", "translateX(-50%)");
+    $("#userTracks .nav-icon").html('<i class="fas fa-arrow-left"></i>');
+    $("#userTracks .title").text(track.name);
+
+    fillTrackInfo(track);
+  }
+
+  function fillTrackInfo(track) {
+    var startDate = new Date(track.startTimestamp);
+    var finishDate = new Date(track.finishTimestamp);
+
+    $("#startTime").text(formatDateTime(startDate));
+    $("#finishTime").text(formatDateTime(finishDate));
+    
+    var dist = prepareDistance(track.distance, 3);
+    $("#distance").text(dist.value + " " + dist.unit);
+    
+    $("#trackMapLink").attr("value", "http://localhost:3000/map/track/" + track._id);
+    $("#openTrackMapLink").attr("href", "/map/track/" + track._id);
+    $("#copyTrackMapLink").text("Skopiuj link");
+
+  }
+
+  function formatDateTime(date) {
+    return date.getHours() 
+      + ":" + date.getMinutes()
+      + ", " + date.getDate() 
+      + " " + getMonthShortName(date.getMonth()) 
+      + " " + date.getFullYear();
+  }
+
+  $("#userTracks .nav-icon").click(function () {
+    closeTrackPanel();
+  });
+
+  function closeTrackPanel() {
+    $("#userTracks .panel-content").css("transform", "translateX(0)");
+    $("#userTracks .nav-icon").html('<i class="fas fa-route"></i>');
+    $("#panelTitle").html(user.username);
+
+  }
+
+
+  $("#copyTrackMapLink").click(function () {
+    $("#trackMapLink").select();
+    document.execCommand('copy');
+    $("#copyTrackMapLink").text("Skopiowano");
+  });
+
+  loadMap();
+  loadUserAndTracks();
+  
+  setTimeout(function(){ $("#userTracks .empty-list").css("opacity", "1");}, 2000);
+
+});
+
+</script>
+
+
+
+<% include tiles/footer %>

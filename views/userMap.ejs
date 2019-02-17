@@ -47,8 +47,10 @@
           <td><span id="userAccuracy"></span> m</td>
         </tr>
       </table>
-
-    </div>
+      </div>
+      <div class="user-tracks-link">
+        <a id="openUserTracksLink" href="#" >Pokaż zapisane trasy</a>
+      </div>
     </div>
     </div>
   </div>
@@ -69,14 +71,6 @@ $(function() {
   var polyline = null;
   var user = null;
   var WSClient = null;
-  var markerColors = [
-    {name: "red", hex: ["e84141", "990000"]}, 
-    {name: "blue", hex: ["5dade2", "35586C"]}, 
-    {name: "purple", hex: ["9969c7", "633974"]}, 
-    {name: "orange", hex: ["ff7f00", "873600"]}, 
-    {name: "green", hex: ["46CB18", "145a32"]},
-    {name: "yellow", hex: ["fdfd04", "7e5109"]}
-  ];
   var lastLocation = null;
   var followUser = false;
   var userIsOnline = false;
@@ -308,8 +302,7 @@ $(function() {
     $("#user .title").text(user.username);
     $("#userPin").attr("src", "/images/"+ user.color.name + ".svg");
     $("#user .user-info").css("border-bottom-color", "#" + user.color.hex[0]);
-    $("#userClickPin").attr("user-id", user._id);
-    $("#userFollow").attr("user-id", user._id);
+    $("#openUserTracksLink").attr("href", "/map/user/" + userID + "/tracks");
 
     if(followUser)
       $("#userFollow").addClass("active");
