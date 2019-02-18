@@ -27,6 +27,7 @@
     </div>
     </div>
   </div>
+  <div id="breadcrumbs"><div class="breadcrumbs-wrap"></div></div>
 </div>
 
 
@@ -114,8 +115,10 @@ $(function() {
     }
 
     openTrack(track);
-
+    
     $("#panelTitle").text(track.name);
+
+    createBreadcrumbs();
   }
 
 
@@ -201,6 +204,36 @@ $(function() {
       + ", " + date.getDate() 
       + " " + getMonthShortName(date.getMonth()) 
       + " " + date.getFullYear();
+  }
+
+  function createBreadcrumbs() {
+    var elLiveMap = document.createElement("a");
+    $(elLiveMap).attr("href", "/map");
+    $(elLiveMap).text("Live Map");
+
+    var elUserMap = document.createElement("a");
+    $(elUserMap).attr("href", "/map/user/" + user._id);
+    $(elUserMap).text(user.username);
+
+    var elUserTracksMap = document.createElement("a");
+    $(elUserTracksMap).attr("href", "/map/user/" + user._id + "/tracks");
+    $(elUserTracksMap).text("Trasy");
+
+    var elTrackMap = document.createElement("a");
+    $(elTrackMap).attr("href", "/map/track/" + track._id);
+    $(elTrackMap).text(track.name);
+    
+    var breadcrumbsWrap = $("#breadcrumbs .breadcrumbs-wrap");
+    var separator = "&nbsp;&raquo;&nbsp";
+    breadcrumbsWrap.append(elLiveMap);
+    breadcrumbsWrap.append(separator);
+    breadcrumbsWrap.append(elUserMap);
+    breadcrumbsWrap.append(separator);
+    breadcrumbsWrap.append(elUserTracksMap);
+    breadcrumbsWrap.append(separator);
+    breadcrumbsWrap.append(elTrackMap);
+
+    $("#breadcrumbs").css("opacity", "1");
   }
 
 

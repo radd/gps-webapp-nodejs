@@ -54,6 +54,7 @@
     </div>
     </div>
   </div>
+  <div id="breadcrumbs"><div class="breadcrumbs-wrap"></div></div>
 </div>
 
 
@@ -131,6 +132,8 @@ $(function() {
   function saveUser(data) {
     user = data;
     WebSocketConnect();
+    
+    createBreadcrumbs();
   }
 
   function WebSocketConnect() {
@@ -367,6 +370,31 @@ $(function() {
   function unfollowUser() {
     followUser = false;
   }
+
+  $("#copyTrackMapLink").click(function () {
+    $("#trackMapLink").select();
+    document.execCommand('copy');
+    $("#copyTrackMapLink").text("Skopiowano");
+  });
+
+  function createBreadcrumbs() {
+    var elLiveMap = document.createElement("a");
+    $(elLiveMap).attr("href", "/map");
+    $(elLiveMap).text("Live Map");
+
+    var elUserMap = document.createElement("a");
+    $(elUserMap).attr("href", "/map/user/" + user._id);
+    $(elUserMap).text(user.username);
+    
+    var breadcrumbsWrap = $("#breadcrumbs .breadcrumbs-wrap");
+    var separator = "&nbsp;&raquo;&nbsp";
+    breadcrumbsWrap.append(elLiveMap);
+    breadcrumbsWrap.append(separator);
+    breadcrumbsWrap.append(elUserMap);
+
+    $("#breadcrumbs").css("opacity", "1");
+  }
+
 
   resetClients(); // reset clients on the server
   function resetClients() {

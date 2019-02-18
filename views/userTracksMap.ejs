@@ -38,6 +38,7 @@
     </div>
     </div>
   </div>
+  <div id="breadcrumbs"><div class="breadcrumbs-wrap"></div></div>
 </div>
 
 
@@ -136,10 +137,14 @@ $(function() {
         openTrack(tracks[keys[0]], false);
       }, 1000);
     }
+    else {
+      $("#userTracks .empty-list").css("opacity", "1");
+    }
 
     $("#panelTitle").text(user.username);
     $("#trackCount").text(keys.length);
 
+    createBreadcrumbs();
   }
 
 
@@ -366,10 +371,32 @@ $(function() {
     $("#copyTrackMapLink").text("Skopiowano");
   });
 
+  function createBreadcrumbs() {
+    var elLiveMap = document.createElement("a");
+    $(elLiveMap).attr("href", "/map");
+    $(elLiveMap).text("Live Map");
+
+    var elUserMap = document.createElement("a");
+    $(elUserMap).attr("href", "/map/user/" + user._id);
+    $(elUserMap).text(user.username);
+
+    var elUserTracksMap = document.createElement("a");
+    $(elUserTracksMap).attr("href", "/map/user/" + user._id + "/tracks");
+    $(elUserTracksMap).text("Trasy");
+    
+    var breadcrumbsWrap = $("#breadcrumbs .breadcrumbs-wrap");
+    var separator = "&nbsp;&raquo;&nbsp";
+    breadcrumbsWrap.append(elLiveMap);
+    breadcrumbsWrap.append(separator);
+    breadcrumbsWrap.append(elUserMap);
+    breadcrumbsWrap.append(separator);
+    breadcrumbsWrap.append(elUserTracksMap);
+
+    $("#breadcrumbs").css("opacity", "1");
+  }
+
   loadMap();
   loadUserAndTracks();
-  
-  setTimeout(function(){ $("#userTracks .empty-list").css("opacity", "1");}, 2000);
 
 });
 

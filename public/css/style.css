@@ -934,3 +934,24 @@ body {
 #userTrack .track-info .track-link a:hover {
 	text-decoration: none;
 }
+
+#breadcrumbs {
+	position: absolute;
+	bottom: 10px;
+	left: 80px;
+	right: 80px;
+	display: flex;
+	align-items: center;
+	flex-direction: column;
+	opacity: 0;
+}
+
+#breadcrumbs .breadcrumbs-wrap {
+	background: #fff;
+	box-shadow: 0px 0px 5px 0px rgba(0,0,0,0.2);
+	border-radius: 2px;	
+	overflow: hidden;
+	line-height: 1;
+	padding: 10px 15px;
+	font-size: 14px;
+}
