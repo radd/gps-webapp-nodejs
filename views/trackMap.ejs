@@ -1,0 +1,216 @@
+<% include tiles/header %>
+<% include tiles/top %>
+
+<div class="map-page">
+  <div id="map_canvas"></div>
+
+  <div id="openUserTrack"><i class="fas fa-route"></i></div>
+  <div id="userTrack">
+    <div class="header-panel">
+      <div class="nav-icon"><i class="fas fa-route"></i></div> 
+      <div id="panelTitle" class="title"></div>
+      <div id="closeUserTrack" class="close-panel"><i class="fas fa-times"></i></div>
+    </div>
+    <div class="panel-content">
+    <div class="track-info">
+      <div class="track-details">
+        <div class="det"><div class="det-name">Początek:</div><div id="startTime" class="det-value"></div></div>
+        <div class="det"><div class="det-name">Koniec:</div><div id="finishTime" class="det-value"></div></div>
+        <div class="det"><div class="det-name">Dystans:</div><div id="distance" class="det-value"></div></div>
+      </div>
+      <div class="track-link">
+          <a id="openUserMap" href="#" >Użytkownik: <span></span></a>
+      </div>
+      <div class="track-link">
+          <a id="openUserTracksMap" href="#" >Pokaż inne trasy użytkownika</a>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
+
+
+<% include tiles/footerScript %>
+
+<script src="/lib/stompjs/stomp.js"></script>
+
+<script>
+$(function() {
+  var map;
+  var token = "<%= user.token %>";
+  var trackID = "<%= trackID %>";
+  var markerStart = null;
+  var markerFinish = null;
+  var polyline = null;
+  var track = null;
+  var user = null;
+  var WSClient = null;
+  var bounds = null;
+
+  function loadMap() {
+    var mapOptions = {
+      center: new google.maps.LatLng(50.201723, 17.822469),
+      zoom: 12,
+      mapTypeId: google.maps.MapTypeId.ROADMAP,
+      tilt: 45,
+        rotateControl: true
+    };
+
+    map = new google.maps.Map(document.getElementById("map_canvas"), mapOptions);
+    map.setTilt(45);
+
+  }
+
+  function animateZoom(map, targetZoom) {
+    var currentZoom = arguments[2] || map.getZoom();
+
+    if (currentZoom < targetZoom) {
+      var e = google.maps.event.addListener(map, 'zoom_changed', function(event){
+        google.maps.event.removeListener(e);
+        animateZoom(map, targetZoom, currentZoom + (targetZoom > currentZoom ? 1 : -1));
+      });
+      setTimeout(function(){map.setZoom(currentZoom)}, 80);
+    }
+  }
+
+  function animateZoomHelper(map, targetZoom) {
+    var currentZoom = map.getZoom();
+    if(currentZoom != targetZoom && currentZoom != targetZoom -1 && currentZoom != targetZoom -2) // because map.panTo changes zoom and animate is lagging 
+      animateZoom(map, targetZoom);
+  }
+
+
+  function loadTrackFullInfo() {
+    var url = "http://localhost:8080/api/test/track/"+trackID+"/full";
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.responseType = 'json';
+    xhr.onload = function () {
+      var status = xhr.status;
+      if (status === 200) {
+        //console.log(xhr.response);
+        
+        saveTrackFullInfo(xhr.response);
+      } else {
+        console.log("unauthotirize");
+      }
+    };
+    
+    xhr.send();
+  }
+
+  function saveTrackFullInfo(data) {
+    user = data.user;
+    track = data.track;
+    track.latLongs = [];
+
+    bounds = new google.maps.LatLngBounds();
+
+    for(var i =0;i<data.locations.length; i++) {
+      var latLong = new google.maps.LatLng(data.locations[i].latitude, data.locations[i].longitude);
+      track.latLongs.push(latLong);
+      bounds.extend(latLong);
+    }
+
+    openTrack(track);
+
+    $("#panelTitle").text(track.name);
+  }
+
+
+  function createMarker(latLong, color, labelText) {
+    return new google.maps.Marker({
+      map: map,
+      position: latLong,
+      icon: {
+        url: "/images/"+color.name+".svg",
+        scaledSize: new google.maps.Size(25, 41),
+        labelOrigin: new google.maps.Point(13, -10)
+      },
+      labelClass: "labels",
+      label: {
+        text: labelText,
+        fontSize: '12px'
+      }
+    });
+  }
+
+  function createPolyline(locations, colorHex) {
+    var polyline = new google.maps.Polyline({
+      map: map,
+      path: locations,
+      geodesic: true,
+      strokeColor: '#' + colorHex,
+      strokeOpacity: 1.0,
+      strokeWeight: 4
+    });
+
+    return polyline;
+  }
+
+
+  $("#openUserTrack").click(function () {
+    showUserTrack()
+  });
+
+  $("#userTrack .close-panel").click(function () {
+    $("#userTrack").fadeOut();
+    $("#openUserTrack").fadeIn();
+  });
+
+  function showUserTrack() {
+    $("#openUserTrack").fadeOut(0);
+    $("#userTrack").fadeIn();
+  }
+  showUserTrack();
+
+
+  function openTrack(track) {
+    showTrack(track);
+    fillTrackInfo(track);
+  }
+
+  function showTrack(track) {
+    markerStart = createMarker(track.latLongs[0], markerColors[0], "Początek")
+    markerFinish = createMarker(track.latLongs[track.latLongs.length-1], markerColors[0], "Koniec")
+    polyline = createPolyline(track.latLongs, markerColors[0].hex[0]);
+    
+    map.fitBounds(bounds);
+  }
+
+  function fillTrackInfo(track) {
+    var startDate = new Date(track.startTimestamp);
+    var finishDate = new Date(track.finishTimestamp);
+
+    $("#startTime").text(formatDateTime(startDate));
+    $("#finishTime").text(formatDateTime(finishDate));
+    
+    var dist = prepareDistance(track.distance, 3);
+    $("#distance").text(dist.value + " " + dist.unit);
+
+    $("#openUserMap").attr("href", "/map/user/"+user._id);
+    $("#openUserMap span").text(user.username);
+
+    $("#openUserTracksMap").attr("href", "/map/user/"+user._id+"/tracks");
+  }
+
+  function formatDateTime(date) {
+    return date.getHours() 
+      + ":" + date.getMinutes()
+      + ", " + date.getDate() 
+      + " " + getMonthShortName(date.getMonth()) 
+      + " " + date.getFullYear();
+  }
+
+
+  loadMap();
+  loadTrackFullInfo();
+  
+});
+
+</script>
+
+
+
+<% include tiles/footer %>
