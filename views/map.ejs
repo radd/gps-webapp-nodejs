@@ -59,7 +59,7 @@
       </table>
       <div class="form-group user-map-form">
         <label for="user-map-input">Bezpośredni link</label>
-        <input type="text" name="user-map-input" id="userMapLink" class="form-control user-map-input" value="http://localhost:3000/map/user/">
+        <input type="text" name="user-map-input" id="userMapLink" class="form-control user-map-input" value="">
       </div>
       <div class="user-map-link">
         <button type="button" class="btn btn-link" id="copyUserMapLink">Skopiuj link</button> 
@@ -78,7 +78,6 @@
 
 <script>
 $(function() {
-  var map;
   var token = "<%= user.token %>";
   var subs = {};
   var markers = {};
@@ -89,41 +88,9 @@ $(function() {
   var userPanelActive = {isActive: false, userID: ""};
   var followUser = {isActive: false, userID: ""};
 
-  function loadMap() {
-    var mapOptions = {
-      center: new google.maps.LatLng(50.201723, 17.822469),
-      zoom: 12,
-      mapTypeId: google.maps.MapTypeId.ROADMAP,
-      tilt: 45,
-        rotateControl: true
-    };
-
-    map = new google.maps.Map(document.getElementById("map_canvas"), mapOptions);
-    map.setTilt(45);
-
-  }
-
-  function animateZoom(map, targetZoom) {
-    var currentZoom = arguments[2] || map.getZoom();
-
-    if (currentZoom < targetZoom) {
-      var e = google.maps.event.addListener(map, 'zoom_changed', function(event){
-        google.maps.event.removeListener(e);
-        animateZoom(map, targetZoom, currentZoom + (targetZoom > currentZoom ? 1 : -1));
-      });
-      setTimeout(function(){map.setZoom(currentZoom)}, 80);
-    }
-  }
-
-  function animateZoomHelper(map, targetZoom) {
-    var currentZoom = map.getZoom();
-    if(currentZoom != targetZoom && currentZoom != targetZoom -1 && currentZoom != targetZoom -2) // because map.panTo changes zoom and animate is lagging 
-      animateZoom(map, targetZoom);
-  }
-
 
   function loadUsers() {
-    var url = "http://localhost:8080/api/test/users";
+    var url = "http://"+IP+":8080/api/test/users";
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.setRequestHeader('Authorization', 'Bearer ' + token);
@@ -152,7 +119,7 @@ $(function() {
   }
 
   function WebSocketConnect() {
-    WSClient = webstomp.client("ws://localhost:8080/send", {debug: false, protocols: [token]});
+    WSClient = webstomp.client("ws://"+IP+":8080/send", {debug: false, protocols: ['v10.stomp', 'v11.stomp', 'v12.stomp', token]});
     WSClient.connect({}, function() {
       //console.log("connected");
       subscribeAllUsers();
@@ -492,7 +459,7 @@ $(function() {
     setUserInfoState(lastLocations[user._id].isActive);
     setUserInfoLocation(lastLocations[user._id].location);
 
-    $("#userMapLink").attr("value", "http://localhost:3000/map/user/" + user._id);
+    $("#userMapLink").attr("value", "http://"+IP+":3000/map/user/" + user._id);
     $("#openUserMapLink").attr("href", "/map/user/" + user._id);
     $("#copyUserMapLink").text("Skopiuj link");
 
@@ -589,7 +556,7 @@ $(function() {
 
   resetClients(); // reset clients on the server
   function resetClients() {
-    var url = "http://localhost:8080/api/test/reset";
+    var url = "http://"+IP+":8080/api/test/reset";
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.setRequestHeader('Authorization', 'Bearer ' + token);

@@ -4,7 +4,7 @@ const app = express();
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const request = require('request');
-
+const IP = "localhost";
 
 app.use(express.static('public'));
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -56,7 +56,7 @@ app.use((req, res, next) => {
 
 let autoLogin = (req, callback) => {
     var options = {
-        uri: 'http://localhost:8080/api/auth/sign-in',
+        uri: 'http://'+IP+':8080/api/auth/sign-in',
         method: 'POST',
         json: {
             email: "test1@test.com",
@@ -132,7 +132,7 @@ app.route('/signup')
         let form = {add:false, errorMsg: "", email: req.body.email, username: req.body.username}
 
         var options = {
-            uri: 'http://localhost:8080/api/auth/sign-up',
+            uri: 'http://'+IP+':8080/api/auth/sign-up',
             method: 'POST',
             json: {
                 email: req.body.email,
@@ -172,7 +172,7 @@ app.route('/login')
         let form = {errorMsg: "", email: req.body.email}
 
         var options = {
-            uri: 'http://localhost:8080/api/auth/sign-in',
+            uri: 'http://'+IP+':8080/api/auth/sign-in',
             method: 'POST',
             json: {
                 email: req.body.email,

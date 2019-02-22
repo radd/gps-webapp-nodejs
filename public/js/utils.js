@@ -1,3 +1,39 @@
+var IP = "192.168.1.41";
+
+var map;
+
+function loadMap() {
+    var mapOptions = {
+      center: new google.maps.LatLng(51.754512, 19.430550),
+      zoom: 7,
+      mapTypeId: google.maps.MapTypeId.ROADMAP,
+      tilt: 45,
+        rotateControl: true
+    };
+
+    map = new google.maps.Map(document.getElementById("map_canvas"), mapOptions);
+    map.setTilt(45);
+
+}
+
+function animateZoom(map, targetZoom) {
+    var currentZoom = arguments[2] || map.getZoom();
+
+    if (currentZoom < targetZoom) {
+      var e = google.maps.event.addListener(map, 'zoom_changed', function(event){
+        google.maps.event.removeListener(e);
+        animateZoom(map, targetZoom, currentZoom + (targetZoom > currentZoom ? 1 : -1));
+      });
+      setTimeout(function(){map.setZoom(currentZoom)}, 80);
+    }
+}
+
+function animateZoomHelper(map, targetZoom) {
+    var currentZoom = map.getZoom();
+    if(currentZoom != targetZoom && currentZoom != targetZoom -1 && currentZoom != targetZoom -2) // because map.panTo changes zoom and animate is lagging 
+        animateZoom(map, targetZoom);
+}
+
 
 var markerColors = [
     {name: "red", hex: ["e84141", "990000"]}, 

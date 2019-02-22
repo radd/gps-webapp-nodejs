@@ -28,7 +28,7 @@
       </div>
       <div class="form-group track-map-form">
         <label for="track-map-input">Bezpośredni link</label>
-        <input type="text" name="track-map-input" id="trackMapLink" class="form-control track-map-input" value="http://localhost:3000/map/user/">
+        <input type="text" name="track-map-input" id="trackMapLink" class="form-control track-map-input" value="">
       </div>
       <div class="track-map-link">
         <button type="button" class="btn btn-link" id="copyTrackMapLink">Skopiuj link</button> 
@@ -48,7 +48,6 @@
 
 <script>
 $(function() {
-  var map;
   var token = "<%= user.token %>";
   var userID = "<%= userID %>";
   var markerStart = null;
@@ -61,41 +60,9 @@ $(function() {
 
   var trackActive = {trackID: ""};
 
-  function loadMap() {
-    var mapOptions = {
-      center: new google.maps.LatLng(50.201723, 17.822469),
-      zoom: 12,
-      mapTypeId: google.maps.MapTypeId.ROADMAP,
-      tilt: 45,
-        rotateControl: true
-    };
-
-    map = new google.maps.Map(document.getElementById("map_canvas"), mapOptions);
-    map.setTilt(45);
-
-  }
-
-  function animateZoom(map, targetZoom) {
-    var currentZoom = arguments[2] || map.getZoom();
-
-    if (currentZoom < targetZoom) {
-      var e = google.maps.event.addListener(map, 'zoom_changed', function(event){
-        google.maps.event.removeListener(e);
-        animateZoom(map, targetZoom, currentZoom + (targetZoom > currentZoom ? 1 : -1));
-      });
-      setTimeout(function(){map.setZoom(currentZoom)}, 80);
-    }
-  }
-
-  function animateZoomHelper(map, targetZoom) {
-    var currentZoom = map.getZoom();
-    if(currentZoom != targetZoom && currentZoom != targetZoom -1 && currentZoom != targetZoom -2) // because map.panTo changes zoom and animate is lagging 
-      animateZoom(map, targetZoom);
-  }
-
 
   function loadUserAndTracks() {
-    var url = "http://localhost:8080/api/test/user/"+userID+"/tracks";
+    var url = "http://"+IP+":8080/api/test/user/"+userID+"/tracks";
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.setRequestHeader('Authorization', 'Bearer ' + token);
@@ -119,7 +86,8 @@ $(function() {
 
     for(var i = 0; i < data.trackList.length;i++) {
       // if finishTimestamp is incorrect
-      if(data.trackList[i].finishTimestamp <= data.trackList[i].startTimestamp)
+      if(data.trackList[i].finishTimestamp <= data.trackList[i].startTimestamp 
+              || data.trackList[i].distance == 0)
         continue;
       tracks[data.trackList[i]._id] = data.trackList[i];
       tracks[data.trackList[i]._id].latLongs = [];
@@ -281,7 +249,7 @@ $(function() {
   }
 
   function getTrackLocations(trackID, callback) {
-    var url = "http://localhost:8080/api/test/track/"+trackID+"/locations";
+    var url = "http://"+IP+":8080/api/test/track/"+trackID+"/locations";
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.setRequestHeader('Authorization', 'Bearer ' + token);
@@ -337,9 +305,9 @@ $(function() {
     $("#finishTime").text(formatDateTime(finishDate));
     
     var dist = prepareDistance(track.distance, 3);
-    $("#distance").text(dist.value + " " + dist.unit);
+    $("#distance").text(track.distance + " " + dist.unit);
     
-    $("#trackMapLink").attr("value", "http://localhost:3000/map/track/" + track._id);
+    $("#trackMapLink").attr("value", "http://"+IP+":3000/map/track/" + track._id);
     $("#openTrackMapLink").attr("href", "/map/track/" + track._id);
     $("#copyTrackMapLink").text("Skopiuj link");
 

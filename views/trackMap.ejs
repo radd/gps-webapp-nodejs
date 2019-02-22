@@ -37,7 +37,6 @@
 
 <script>
 $(function() {
-  var map;
   var token = "<%= user.token %>";
   var trackID = "<%= trackID %>";
   var markerStart = null;
@@ -48,41 +47,9 @@ $(function() {
   var WSClient = null;
   var bounds = null;
 
-  function loadMap() {
-    var mapOptions = {
-      center: new google.maps.LatLng(50.201723, 17.822469),
-      zoom: 12,
-      mapTypeId: google.maps.MapTypeId.ROADMAP,
-      tilt: 45,
-        rotateControl: true
-    };
-
-    map = new google.maps.Map(document.getElementById("map_canvas"), mapOptions);
-    map.setTilt(45);
-
-  }
-
-  function animateZoom(map, targetZoom) {
-    var currentZoom = arguments[2] || map.getZoom();
-
-    if (currentZoom < targetZoom) {
-      var e = google.maps.event.addListener(map, 'zoom_changed', function(event){
-        google.maps.event.removeListener(e);
-        animateZoom(map, targetZoom, currentZoom + (targetZoom > currentZoom ? 1 : -1));
-      });
-      setTimeout(function(){map.setZoom(currentZoom)}, 80);
-    }
-  }
-
-  function animateZoomHelper(map, targetZoom) {
-    var currentZoom = map.getZoom();
-    if(currentZoom != targetZoom && currentZoom != targetZoom -1 && currentZoom != targetZoom -2) // because map.panTo changes zoom and animate is lagging 
-      animateZoom(map, targetZoom);
-  }
-
 
   function loadTrackFullInfo() {
-    var url = "http://localhost:8080/api/test/track/"+trackID+"/full";
+    var url = "http://"+IP+":8080/api/test/track/"+trackID+"/full";
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.setRequestHeader('Authorization', 'Bearer ' + token);
@@ -112,6 +79,8 @@ $(function() {
       var latLong = new google.maps.LatLng(data.locations[i].latitude, data.locations[i].longitude);
       track.latLongs.push(latLong);
       bounds.extend(latLong);
+      //console.log((26+i) + ": " +  data.locations[i].latitude + ", " + data.locations[i].longitude);
+      
     }
 
     openTrack(track);
@@ -190,7 +159,7 @@ $(function() {
     $("#finishTime").text(formatDateTime(finishDate));
     
     var dist = prepareDistance(track.distance, 3);
-    $("#distance").text(dist.value + " " + dist.unit);
+    $("#distance").text(track.distance + " " + dist.unit);
 
     $("#openUserMap").attr("href", "/map/user/"+user._id);
     $("#openUserMap span").text(user.username);

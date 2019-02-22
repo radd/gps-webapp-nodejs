@@ -392,7 +392,7 @@ body {
 }
 
 #user .panel-content {
-	max-height: calc(100vh - 56px - 10px - 56px - 20px);
+	max-height: calc(100vh - 56px - 10px - 56px - 20px - 40px);
 	overflow: hidden;
 	display: flex;
 	width: 100%;
@@ -608,7 +608,7 @@ body {
 }
 
 #userTracks .panel-content {
-	max-height: calc(100vh - 56px - 10px - 56px - 20px);
+	max-height: calc(100vh - 56px - 10px - 56px - 20px - 40px);
 	overflow: hidden;
 	display: flex;
 	width: 200%;
@@ -869,7 +869,7 @@ body {
 }
 
 #userTrack .panel-content {
-	max-height: calc(100vh - 56px - 10px - 56px - 20px);
+	max-height: calc(100vh - 56px - 10px - 56px - 20px - 40px);
 	overflow: hidden;
 	display: flex;
 	width: 100%;
@@ -937,9 +937,8 @@ body {
 
 #breadcrumbs {
 	position: absolute;
-	bottom: 10px;
-	left: 80px;
-	right: 80px;
+	bottom: 24px;
+	right: 60px;
 	display: flex;
 	align-items: center;
 	flex-direction: column;
