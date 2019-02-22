@@ -87,7 +87,7 @@ $(function() {
   var lastLocations = {};
   var userPanelActive = {isActive: false, userID: ""};
   var followUser = {isActive: false, userID: ""};
-
+  var bounds = new google.maps.LatLngBounds();
 
   function loadUsers() {
     var url = "http://"+IP+":8080/api/test/users";
@@ -236,6 +236,10 @@ $(function() {
     
     if(!markers[location.userID]) { // when user not exists
       addUserToMap(location);
+      
+      bounds.extend(latLong);
+      if(followUser.isActive == false)
+        map.fitBounds(bounds);
     }
 
     polylines[location.userID].getPath().push(latLong); //update route
