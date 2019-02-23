@@ -77,7 +77,7 @@ $(function() {
 
 
   function loadUser() {
-    var url = "http://"+IP+":8080/api/test/user/" + userID;
+    var url = "http://"+IP+":8080/api/user/" + userID;
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.setRequestHeader('Authorization', 'Bearer ' + token);
@@ -106,7 +106,7 @@ $(function() {
   }
 
   function WebSocketConnect() {
-    WSClient = webstomp.client("ws://"+IP+":8080/send", {debug: false, protocols: [token]});
+    WSClient = webstomp.client("ws://"+IP+":8080/connect-ws", {debug: false, protocols: [token]});
     WSClient.connect({}, function() {
       //console.log("connected");
       subscribeUser();
@@ -381,7 +381,7 @@ $(function() {
 
   resetClients(); // reset clients on the server
   function resetClients() {
-    var url = "http://"+IP+":8080/api/test/reset";
+    var url = "http://"+IP+":8080/api/other/reset";
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.setRequestHeader('Authorization', 'Bearer ' + token);

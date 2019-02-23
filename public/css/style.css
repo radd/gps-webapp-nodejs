@@ -318,6 +318,24 @@ body {
 	border-radius: 0px;
 }
 
+#userList .user-info .user-tracks-link {
+	width: 100%;
+	display: flex;
+	text-align: center;
+	margin-top: 5px;
+}
+
+#userList .user-info .user-tracks-link a {
+	flex:1;
+	padding: 0px 0px 20px;
+	font-size: 14px;
+	display: block;
+}
+
+#userList .user-info .user-tracks-link a:hover {
+	text-decoration: none;
+}
+
 /* User Map */
 
 

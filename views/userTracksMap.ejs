@@ -44,8 +44,6 @@
 
 <% include tiles/footerScript %>
 
-<script src="/lib/stompjs/stomp.js"></script>
-
 <script>
 $(function() {
   var token = "<%= user.token %>";
@@ -62,7 +60,7 @@ $(function() {
 
 
   function loadUserAndTracks() {
-    var url = "http://"+IP+":8080/api/test/user/"+userID+"/tracks";
+    var url = "http://"+IP+":8080/api/user/"+userID+"/tracks";
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.setRequestHeader('Authorization', 'Bearer ' + token);
@@ -249,7 +247,7 @@ $(function() {
   }
 
   function getTrackLocations(trackID, callback) {
-    var url = "http://"+IP+":8080/api/test/track/"+trackID+"/locations";
+    var url = "http://"+IP+":8080/api/track/"+trackID+"/locations";
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.setRequestHeader('Authorization', 'Bearer ' + token);

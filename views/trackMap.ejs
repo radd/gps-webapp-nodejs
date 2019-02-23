@@ -33,8 +33,6 @@
 
 <% include tiles/footerScript %>
 
-<script src="/lib/stompjs/stomp.js"></script>
-
 <script>
 $(function() {
   var token = "<%= user.token %>";
@@ -49,7 +47,7 @@ $(function() {
 
 
   function loadTrackFullInfo() {
-    var url = "http://"+IP+":8080/api/test/track/"+trackID+"/full";
+    var url = "http://"+IP+":8080/api/track/"+trackID+"/full";
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.setRequestHeader('Authorization', 'Bearer ' + token);

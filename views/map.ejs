@@ -65,6 +65,9 @@
         <button type="button" class="btn btn-link" id="copyUserMapLink">Skopiuj link</button> 
         <a id="openUserMapLink" href="#" >Otwórz link</a>
       </div>
+      <div class="user-tracks-link">
+        <a id="openUserTracksLink" href="#" >Pokaż zapisane trasy</a>
+      </div>
     </div>
     </div>
     </div>
@@ -90,7 +93,7 @@ $(function() {
   var bounds = new google.maps.LatLngBounds();
 
   function loadUsers() {
-    var url = "http://"+IP+":8080/api/test/users";
+    var url = "http://"+IP+":8080/api/users";
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.setRequestHeader('Authorization', 'Bearer ' + token);
@@ -119,7 +122,7 @@ $(function() {
   }
 
   function WebSocketConnect() {
-    WSClient = webstomp.client("ws://"+IP+":8080/send", {debug: false, protocols: ['v10.stomp', 'v11.stomp', 'v12.stomp', token]});
+    WSClient = webstomp.client("ws://"+IP+":8080/connect-ws", {debug: false, protocols: ['v10.stomp', 'v11.stomp', 'v12.stomp', token]});
     WSClient.connect({}, function() {
       //console.log("connected");
       subscribeAllUsers();
@@ -236,7 +239,7 @@ $(function() {
     
     if(!markers[location.userID]) { // when user not exists
       addUserToMap(location);
-      
+
       bounds.extend(latLong);
       if(followUser.isActive == false)
         map.fitBounds(bounds);
@@ -466,6 +469,7 @@ $(function() {
     $("#userMapLink").attr("value", "http://"+IP+":3000/map/user/" + user._id);
     $("#openUserMapLink").attr("href", "/map/user/" + user._id);
     $("#copyUserMapLink").text("Skopiuj link");
+    $("#openUserTracksLink").attr("href", "/map/user/" + user._id + "/tracks");
 
     if(followUser.isActive && followUser.userID === user._id)
       $("#userFollow").addClass("active");
@@ -560,7 +564,7 @@ $(function() {
 
   resetClients(); // reset clients on the server
   function resetClients() {
-    var url = "http://"+IP+":8080/api/test/reset";
+    var url = "http://"+IP+":8080/api/other/reset";
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.setRequestHeader('Authorization', 'Bearer ' + token);
