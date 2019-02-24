@@ -106,7 +106,7 @@ $(function() {
   }
 
   function WebSocketConnect() {
-    WSClient = webstomp.client("ws://"+IP+":8080/connect-ws", {debug: false, protocols: [token]});
+    WSClient = webstomp.client("ws://"+IP+":8080/connect-ws", {debug: false, protocols: ['v10.stomp', 'v11.stomp', 'v12.stomp', token]});
     WSClient.connect({}, function() {
       //console.log("connected");
       subscribeUser();
