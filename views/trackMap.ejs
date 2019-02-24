@@ -156,8 +156,8 @@ $(function() {
     $("#startTime").text(formatDateTime(startDate));
     $("#finishTime").text(formatDateTime(finishDate));
     
-    var dist = prepareDistance(track.distance, 3);
-    $("#distance").text(track.distance + " " + dist.unit);
+    var dist = prepareDistance(track.distance, false);
+    $("#distance").text(dist.value + " " + dist.unit);
 
     $("#openUserMap").attr("href", "/map/user/"+user._id);
     $("#openUserMap span").text(user.username);

@@ -1,4 +1,6 @@
-var IP = "192.168.1.41";
+var IP = "40.115.21.196";
+//var IP = "192.168.1.41";
+//var IP = "localhost";
 
 var map;
 
@@ -57,7 +59,7 @@ function getMonthShortName(month) {
     return monthNames[month];
 }
 
-function prepareDistance(distance, fixed = 1) {
+function prepareDistance(distance, round = true) {
     var value;
 
     if(distance < 1) {
@@ -65,10 +67,16 @@ function prepareDistance(distance, fixed = 1) {
         value = Math.round(distance * 1000);
     }
     else if(distance < 100) {
-        value = parseFloat(new Number(distance).toFixed(fixed)); // parseFloat removes additional zeros; e.g. 10 -> 10.0 -> 10; 21.232 -> 21.2 -> 21.2
+        if(round)
+            value = parseFloat(new Number(distance).toFixed(1)); // parseFloat removes additional zeros; e.g. 10 -> 10.0 -> 10; 21.232 -> 21.2 -> 21.2
+        else
+            value = parseFloat(new Number(distance).toFixed(3)); 
     }
     else {
-        value = Math.round(distance);
+        if(round)
+            value = Math.round(distance);
+        else
+            value = parseFloat(new Number(distance).toFixed(3));     
     }
 
     return {

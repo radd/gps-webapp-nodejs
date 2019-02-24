@@ -302,8 +302,8 @@ $(function() {
     $("#startTime").text(formatDateTime(startDate));
     $("#finishTime").text(formatDateTime(finishDate));
     
-    var dist = prepareDistance(track.distance, 3);
-    $("#distance").text(track.distance + " " + dist.unit);
+    var dist = prepareDistance(track.distance, false);
+    $("#distance").text(dist.value + " " + dist.unit);
     
     $("#trackMapLink").attr("value", "http://"+IP+":3000/map/track/" + track._id);
     $("#openTrackMapLink").attr("href", "/map/track/" + track._id);

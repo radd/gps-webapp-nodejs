@@ -4,9 +4,14 @@ const app = express();
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const request = require('request');
-const IP = "localhost";
+const path = require ('path');
 
-app.use(express.static('public'));
+const IP = "40.115.21.196";
+//const IP = "192.168.1.41";
+//const IP = "localhost";
+
+app.use(express.static(path.join(__dirname, 'public')));
+app.set('views', path.join(__dirname, 'views'));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.set('view engine', 'ejs')
 app.use(cookieParser());
@@ -113,10 +118,10 @@ app.route('/')
         //console.log(req.cookies);
         
 
-        res.render('index', params({title: title}));
+        res.render('./index', params({title: title}));
     })
     .post((req, res) => {
-        res.render('index', {action: "post"});
+        res.render('./index', {action: "post"});
     });
 
 
@@ -125,7 +130,7 @@ app.route('/signup')
         let title = "Rejestracja";
         let form = {add:false, errorMsg: "", email:"", username:""}
 
-        res.render('signup', params({title: title, form: form}));
+        res.render('./signup', params({title: title, form: form}));
     })
     .post(nonAuth, (req, res) => {
         let title = "Rejestracja";
@@ -154,7 +159,7 @@ app.route('/signup')
             else {
                 form.errorMsg = "Błąd: " + error;
             }
-            res.render('signup', params({title: title, form: form}));
+            res.render('./signup', params({title: title, form: form}));
         });
 
         
@@ -165,7 +170,7 @@ app.route('/login')
         let title = "Logowanie";
         let form = {errorMsg: "", email:""}
 
-        res.render('login', params({title: title, form: form}));
+        res.render('./login', params({title: title, form: form}));
     })
     .post(nonAuth, (req, res) => {
         let title = "Logowanie";
@@ -193,11 +198,11 @@ app.route('/login')
             }
             else if (!error) {
                 form.errorMsg = "Niepoprawny email lub hasło";
-                res.render('login', params({title: title, form: form}));
+                res.render('./login', params({title: title, form: form}));
             }
             else {
                 form.errorMsg = "Błąd: " + error;
-                res.render('login', params({title: title, form: form}));
+                res.render('./login', params({title: title, form: form}));
             }
         });
     });
@@ -212,32 +217,32 @@ app.route('/logout')
 app.route('/userpage')
     .get(auth, (req, res) => {
         let title = "Userpage";
-        res.render('userpage', {title: title});
+        res.render('./userpage', {title: title});
     });
 
     
 app.route('/map')
     .get(auth, (req, res) => {
         let title = "GPS tracking";
-        res.render('map', {title: title});
+        res.render('./map', {title: title});
     });
 
 app.route('/map/user/:userID')
     .get(auth, (req, res) => {
         let title = "GPS tracking";
-        res.render('userMap', {title: title, userID: req.params.userID});
+        res.render('./userMap', {title: title, userID: req.params.userID});
     });
 
 app.route('/map/user/:userID/tracks')
     .get(auth, (req, res) => {
         let title = "GPS tracking";
-        res.render('userTracksMap', {title: title, userID: req.params.userID});
+        res.render('./userTracksMap', {title: title, userID: req.params.userID});
     });
 
 app.route('/map/track/:trackID')
     .get(auth, (req, res) => {
         let title = "GPS tracking";
-        res.render('trackMap', {title: title, trackID: req.params.trackID});
+        res.render('./trackMap', {title: title, trackID: req.params.trackID});
     });
 app.listen(3000, function () {
     console.log('Server listening on port 3000')
