@@ -92,7 +92,7 @@ body {
 	overflow: hidden;
 	display: flex;
 	width: 200%;
-	transition: all 0.4s;
+	transition: all 0.3s;
 }
 
 #userList .user-list {
@@ -972,3 +972,30 @@ body {
 	padding: 10px 15px;
 	font-size: 14px;
 }
+
+@media only screen and (max-width: 400px) {
+	/* #userList, #user, #userTracks, #userTrack {
+		top: -56px;
+		bottom: calc(50% + 28px);
+		left:0;
+		right:0;
+		width: 100%;
+		border-radius: 0;
+	}
+
+	#userList .panel-content, #user .panel-content, #userTracks .panel-content, #userTrack .panel-content {
+		max-height: calc(100% - 54px);
+	}
+
+	.map-page	{
+		z-index:2000;
+	} */
+
+	
+	
+
+}
+
+
+
+

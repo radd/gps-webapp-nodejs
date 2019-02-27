@@ -6,9 +6,9 @@ const session = require('express-session');
 const request = require('request');
 const path = require ('path');
 
-const IP = "40.115.21.196";
+const IP = "40.115.21.196"; // local
 //const IP = "192.168.1.41";
-//const IP = "localhost";
+//const IP = "localhost"; // on server
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('views', path.join(__dirname, 'views'));

@@ -167,7 +167,7 @@ $(function() {
 
   function formatDateTime(date) {
     return date.getHours() 
-      + ":" + date.getMinutes()
+      + ":" + leadingZero(date.getMinutes())
       + ", " + date.getDate() 
       + " " + getMonthShortName(date.getMonth()) 
       + " " + date.getFullYear();

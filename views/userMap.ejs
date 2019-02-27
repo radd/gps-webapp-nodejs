@@ -307,9 +307,9 @@ $(function() {
   function setUserInfoLocation(location) {
     $("#userLatitude").text(location.latitude);
     $("#userLongitude").text(location.longitude);
-    $("#userSpeed").text(location.speed);
-    $("#userAltitude").text(location.altitude);
-    $("#userAccuracy").text(location.accuracy);
+    $("#userSpeed").text(formatSpeed(location.speed));
+    $("#userAltitude").text(Math.round(location.altitude));
+    $("#userAccuracy").text(Math.round(location.accuracy));
   }
 
 
@@ -357,6 +357,7 @@ $(function() {
   $("#copyTrackMapLink").click(function () {
     $("#trackMapLink").select();
     document.execCommand('copy');
+    $("#trackMapLink").blur();
     $("#copyTrackMapLink").text("Skopiowano");
   });
 

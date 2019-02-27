@@ -88,3 +88,8 @@ function prepareDistance(distance, round = true) {
         return distance >= 1 ? "km" : "m";
     }
 }
+
+function formatSpeed(speed) {
+    speed = parseFloat(speed);
+    return Math.round(speed * 3600 / 1000);
+}
