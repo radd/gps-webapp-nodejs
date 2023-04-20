@@ -6,7 +6,7 @@ const session = require('express-session');
 const request = require('request');
 const path = require ('path');
 
-const IP = "https://paddlesapp.onrender.com"; // local
+const IP = "localhost"; // local
 
 
 app.use(express.static(path.join(__dirname, 'public')));
