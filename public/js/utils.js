@@ -1,6 +1,4 @@
-var IP = "40.115.21.196";
-//var IP = "192.168.1.41";
-//var IP = "localhost";
+var IP = "localhost";
 
 var map;
 
