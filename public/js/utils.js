@@ -1,4 +1,4 @@
-var IP = "https://paddlesapp.onrender.com";
+var IP = "localhost";
 
 var map;
 
